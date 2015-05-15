@@ -26,8 +26,8 @@ Float_t deltaR( const Float_t eta1, const Float_t eta2, const Float_t phi1, cons
 
 using namespace baconhep;
 
-void select(const TString sample="ee", const TString tempinput="/afs/cern.ch/work/a/arapyan/public/forMarkus/higgs_cp_samples/ZH_tautau_rhorho_CP0_mad.root", const Int_t eosflag = 1,
-            const Float_t xsec = 1)
+void select(const TString sample="ee", const TString tempinput="/afs/cern.ch/work/a/arapyan/public/forMarkus/higgs_cp_samples/ZH_tautau_rhorho_CP0_mad.root", const Float_t xsec = 1,
+    const Int_t eosflag = 1)
 {
     TString input;
     if(eosflag==1) input = "root://eoscms.cern.ch//store/user/arapyan/higgs_cp_samples/" + sample + "/Bacon/" + tempinput;
