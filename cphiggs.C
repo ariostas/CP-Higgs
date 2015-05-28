@@ -23,39 +23,97 @@
 #include "Math/Vector3D.h"
 
 // Declare functions
+void histogram(TH1D*, TH1D*, TH1D*, TH1D*, TH1D*, TCanvas*, const char*, const char*, const char*);
 void histogram(TH1D*, TH1D*, TH1D*, TCanvas*, const char*, const char*, const char*);
 void histogram(TH1D*, TH1D*, TCanvas*, const char*, const char*, const char*);
 void histogram(TH1D*, TCanvas*, const char*, const char*, const char*);
 void saveResults();
 Double_t deltaR( const Float_t eta1, const Float_t eta2, const Float_t phi1, const Float_t phi2 );
-void analyze(TString, Int_t);
+void analyze(TString, Double_t, Int_t);
 
 // Initialize histograms
-TH1D *hThetaS1 = new TH1D("hThetaS1", "hThetaS1", 25, -3.14, 3.14);
-TH1D *hThetaS2 = new TH1D("hThetaS2", "hThetaS2", 25, -3.14, 3.14);
-TH1D *hThetaB = new TH1D("hThetaB", "hThetaB", 25, -3.14, 3.14);
+TH1D *hThetaS0 = new TH1D("hThetaS1", "hThetaS1", 20, -3.14, 3.14);
+TH1D *hThetaSpi4 = new TH1D("hThetaS2", "hThetaS2", 20, -3.14, 3.14);
+TH1D *hThetaSpi2 = new TH1D("hThetaS3", "hThetaS3", 20, -3.14, 3.14);
+TH1D *hThetaS3pi4 = new TH1D("hThetaS4", "hThetaS4", 20, -3.14, 3.14);
+TH1D *hThetaB = new TH1D("hThetaB", "hThetaB", 20, -3.14, 3.14);
+
+TH1D *genhistoS1 = new TH1D("histoS1", "histoS1", 50, 50, 200);
+TH1D *genhistoS2 = new TH1D("histoS2", "histoS2", 50, 50, 200);
+TH1D *genhistoS3 = new TH1D("histoS3", "histoS3", 50, 50, 200);
+TH1D *genhistoS4 = new TH1D("histoS4", "histoS4", 50, 50, 200);
+TH1D *genhistoB = new TH1D("histoB", "histoB", 50, 50, 200);
 
 using namespace std;
+
+// Initialyze storage variables
+vector<Double_t> total, selection, kinematicCuts, massCuts;
+vector<Double_t> totalError, selectionError, kinematicCutsError, massCutsError;
+vector<Int_t> signalFlags;
+vector<TString> sampleNames;
+vector<TH1D*> hTheta, genhistos;
 
 /*
  * MAIN FUNCTION
  */
 
-void cphiggs()
-{
+ void cphiggs(TString sample = "all", TString inputFile = "xsec.txt"){
+    
+    cout << "\n\nStarting process...\n\n";
 
-    analyze("CP0",1);
-    analyze("CP1p57",2);
-    analyze("ee_dy_tauhtauh_MG5Pythia8",0);
-    analyze("ee_ww_MG5Pythia8",0);
-    analyze("ee_zz_MG5Pythia8",0);
-    analyze("ee_zzee_MG5Pythia8",0);
+    hTheta.push_back(hThetaB);
+    hTheta.push_back(hThetaS0);
+    hTheta.push_back(hThetaSpi4);
+    hTheta.push_back(hThetaSpi2);
+    hTheta.push_back(hThetaS3pi4);
 
+    genhistos.push_back(genhistoB);
+    genhistos.push_back(genhistoS1);
+    genhistos.push_back(genhistoS2);
+    genhistos.push_back(genhistoS3);
+    genhistos.push_back(genhistoS4);
+    
+    ifstream ifs(inputFile); if(!ifs.is_open()){cout << "Error. File " << inputFile << " not found. Exiting...\n"; return;}
+    
+    Int_t nSamples = 0;
+    TString sampleName, sampleBin, crossSection, signalFlag;
+    
+    while(ifs >> sampleName >> sampleBin >> crossSection >> signalFlag){
+        
+        if(sampleName == "#") continue;
+        
+        if(sample != sampleName && sample != "all") continue;
+        
+        Int_t matchedSample = sampleNames.size();
+        for(UInt_t x=0;x<sampleNames.size();x++){
+            
+            if(sampleName == sampleNames.at(x)) matchedSample = x;
+            
+        }
+        
+        nSamples = matchedSample;
+        
+        if(nSamples == sampleNames.size()){
+            
+            sampleNames.push_back(sampleName);
+            signalFlags.push_back(atof(string(signalFlag).c_str()));
+            total.push_back(0);         totalError.push_back(0);
+            selection.push_back(0);     selectionError.push_back(0);
+            kinematicCuts.push_back(0); kinematicCutsError.push_back(0);
+            massCuts.push_back(0);      massCutsError.push_back(0);
+            
+        }
+        
+        analyze(sampleBin, atof(string(crossSection).c_str()), nSamples);
+        
+    }
+    
+    // Save results
     saveResults();
-
+    
 }
 
-void analyze(TString inputfile, Int_t samp)
+void analyze(TString inputfile, Double_t crossSection, Int_t samp)
 {
 
     const TString inputFileTemp = "/afs/cern.ch/work/a/ariostas/public/CP-Higgs/" + inputfile + ".root";
@@ -84,11 +142,23 @@ void analyze(TString inputfile, Int_t samp)
     Float_t neutpions1_phi, neutpions2_phi;
     Float_t neutpions1_mass, neutpions2_mass;
 
+    // Particles from Z
+    Float_t z1_pt, z2_pt;
+    Float_t z1_eta, z2_eta;
+    Float_t z1_phi, z2_phi;
+    Float_t z1_mass, z2_mass;
+
+    // Jets from Z
+    Float_t jetz1_pt, jetz2_pt;
+    Float_t jetz1_eta, jetz2_eta;
+    Float_t jetz1_phi, jetz2_phi;
+    Float_t jetz1_mass, jetz2_mass;
+
     Float_t eventWeight;
 
     TLorentzVector vtau1, vtau2, vcpion1, vcpion2, vnpion1, vnpion2, vHiggs, vrho1, vrho2, vq1, vq2;
     TVector3 v3Higgs, vE1, vE2, vB1, vB2, v3tau1, v3tau2;
-    UInt_t nProngTau1=0, nProngTau2=0, nLeptons=0;
+    UInt_t nProngTau1=0, nProngTau2=0, nLeptons=0, zToLep=0;
 
     Float_t y1, y2;
     Float_t r=0.14;
@@ -127,14 +197,32 @@ void analyze(TString inputfile, Int_t samp)
     intree->SetBranchAddress("neutpions2_eta",	&neutpions2_eta);
     intree->SetBranchAddress("neutpions2_phi",	&neutpions2_phi);
     intree->SetBranchAddress("neutpions2_mass",	&neutpions2_mass);
+    intree->SetBranchAddress("z1_pt",           &z1_pt);
+    intree->SetBranchAddress("z1_eta",          &z1_eta);
+    intree->SetBranchAddress("z1_phi",          &z1_phi);
+    intree->SetBranchAddress("z1_mass",         &z1_mass);
+    intree->SetBranchAddress("z2_pt",           &z2_pt);
+    intree->SetBranchAddress("z2_eta",          &z2_eta);
+    intree->SetBranchAddress("z2_phi",          &z2_phi);
+    intree->SetBranchAddress("z2_mass",         &z2_mass);
+    intree->SetBranchAddress("jetz1_pt",        &jetz1_pt);
+    intree->SetBranchAddress("jetz1_eta",       &jetz1_eta);
+    intree->SetBranchAddress("jetz1_phi",       &jetz1_phi);
+    intree->SetBranchAddress("jetz1_mass",      &jetz1_mass);
+    intree->SetBranchAddress("jetz2_pt",        &jetz2_pt);
+    intree->SetBranchAddress("jetz2_eta",       &jetz2_eta);
+    intree->SetBranchAddress("jetz2_phi",       &jetz2_phi);
+    intree->SetBranchAddress("jetz2_mass",      &jetz2_mass);
 
-    Int_t nevents=0;
+    Double_t tempSelection=0, tempSelectionError=0;
+
 
     for (Long64_t iEntry=0; iEntry<intree->GetEntries(); iEntry++)   // Event loop
     {
         intree->GetEntry(iEntry);
 
         if(pions1_pt==0 || pions2_pt==0 || neutpions1_pt==0 || neutpions2_pt==0 || nProngTau1!=1 || nProngTau2!=1) continue;
+        if(genTau1_pt < 10 || genTau2_pt< 10) continue;
 
         // Taus 4-vectors
         vtau1.SetPtEtaPhiM(genTau1_pt, genTau1_eta, genTau1_phi, genTau1_mass);
@@ -196,17 +284,38 @@ void analyze(TString inputfile, Int_t samp)
         theta=TMath::Sign(Double_t(1),v3tau1.Dot(vE2.Cross(vE1)))*TMath::ACos(vE1.Dot(vE2)/(vE1.Mag()*vE2.Mag()));
 
         // Fill histogram for theta variable
-        (samp==0 ? hThetaB : (samp==1 ? hThetaS1 : hThetaS2))->Fill(theta);
+        hTheta.at(signalFlags.at(samp))->Fill(theta);
 
-        nevents++;
+        TLorentzVector v1, v2, vZ;
+
+        if(zToLep){
+            v1.SetPtEtaPhiM(z1_pt, z1_eta, z1_phi, z1_mass);
+            v2.SetPtEtaPhiM(z2_pt, z2_eta, z2_phi, z2_mass);
+        }
+        else{
+            v1.SetPtEtaPhiM(jetz1_pt, jetz1_eta, jetz1_phi, jetz1_mass);
+            v2.SetPtEtaPhiM(jetz2_pt, jetz2_eta, jetz2_phi, jetz2_mass);
+        }
+
+        vZ = v1 + v2;
+
+        vHiggs = vrho1 + vrho2;
+
+        genhistos.at(signalFlags.at(samp))->Fill(vHiggs.M());
+
+        tempSelection+=eventWeight;
+        tempSelectionError++;
 
     } // end event loop
 
     TString out = "";
-    out += nevents;
-    out.Resize(8);
+    out += tempSelection;
+    out.Resize(9);
 
-    cout << (true ? "\033[1;32m" : (out == "0       " ?  "\033[1;34m": "\033[1;31m")) << out << "\033[0m" << " events passed all cuts" << endl;
+    selection.at(samp) += tempSelection;
+    if(tempSelectionError > 0) selectionError.at(samp) += sqrtf(tempSelectionError)*tempSelection/tempSelectionError;
+
+    cout << (signalFlags.at(samp) ? "\033[1;32m" : (out == "0       " ?  "\033[1;34m": "\033[1;31m")) << out << "\033[0m" << " events passed all cuts" << endl;
 
     infile->Close();
 }
@@ -222,18 +331,97 @@ void saveResults()
 
     gStyle->SetOptStat(kFALSE);
 
-    histogram(hThetaS1, hThetaS2, hThetaB, c1, "#Theta variable", "Fraction", "Theta.jpg");
+    histogram(hThetaS0, hThetaSpi4, hThetaSpi2, hThetaS3pi4, hThetaB, c1, "#Theta variable", "Fraction", "Theta.jpg");
+    histogram(genhistoS1, genhistoS2, genhistoS3, genhistoS4, genhistoB, c1, "Z mass", "Fraction", "histo.jpg");
 
     TFile f("histos.root","new");
-    hThetaS1->Write();
-    hThetaS2->Write();
+    hThetaS0->Write();
+    hThetaSpi4->Write();
+    hThetaSpi2->Write();
+    hThetaS3pi4->Write();
     hThetaB->Write();
     f.Close();
 
-    //cout << "\n\n\nProcess finished. Printing results...\n\n" << "\033[1;34mResults\033[0m\n\n";
+    cout << "\n\n\nProcess finished\nPrinting results...\n\n" << "\033[1;34mResults\033[0m\n\n";
+    
+    for(UInt_t x = 0; x<sampleNames.size();x++){
+        
+        cout << (signalFlags.at(x) ? "\033[1;32m" : "\033[1;31m") << sampleNames.at(x) << "\033[0m\n";
+        cout << "Events after selection: " << selection.at(x) << " +- " << selectionError.at(x) << endl << endl;
+        
+    }
 
-    cout << "done\nExiting...\n\n\n";
+    cout << "Done\nExiting...\n\n\n";
 
+}
+
+/*
+ * FUNCTION FOR SAVING FIVE HISTOGRAMS
+ */
+
+void histogram(TH1D *histoS1, TH1D *histoS2, TH1D *histoS3, TH1D *histoS4, TH1D *histoB, TCanvas *can, const char* xTitle, const char* yTitle, const char* name)
+{
+    Double_t nS1=1, nS2=1, nS3=1, nS4=1, nB=1;
+
+    nS1/=histoS1->Integral();
+    nS2/=histoS2->Integral();
+    nS3/=histoS3->Integral();
+    nS4/=histoS4->Integral();
+    nB/=histoB->Integral();
+    histoS1->Scale(nS1);
+    histoS2->Scale(nS2);
+    histoS3->Scale(nS3);
+    histoS4->Scale(nS4);
+    histoB->Scale(nB);
+
+    Double_t max=histoB->GetMaximum();
+    if(histoS1->GetMaximum() > max) max=histoS1->GetMaximum();
+    if(histoS2->GetMaximum() > max) max=histoS2->GetMaximum();
+    if(histoS3->GetMaximum() > max) max=histoS3->GetMaximum();
+    if(histoS4->GetMaximum() > max) max=histoS4->GetMaximum();
+    max*=1.1;
+
+    histoS1->SetMaximum(max);
+    histoS2->SetMaximum(max);
+    histoS3->SetMaximum(max);
+    histoS4->SetMaximum(max);
+    histoB->SetMaximum(max);
+
+    histoS1->SetLineWidth(3);
+    histoS2->SetLineWidth(3);
+    histoS3->SetLineWidth(3);
+    histoS4->SetLineWidth(3);
+    histoB->SetLineWidth(3);
+
+    histoS1->Draw();
+    // add axis labels
+    histoS1->GetXaxis()->SetTitle(xTitle);
+    histoS1->GetYaxis()->SetTitle(yTitle);
+    histoS1->SetTitle(""); // title on top
+
+    histoS2->SetLineColor(kGreen);
+    histoS2->Draw("same");
+
+    histoS3->SetLineColor(kGreen+3);
+    histoS3->Draw("same");
+
+    histoS4->SetLineColor(kMagenta+2);
+    histoS4->Draw("same");
+
+    histoB->SetLineColor(kRed);
+    histoB->Draw("same");
+
+    TLegend *leg = new TLegend(0.605,0.675,0.885,0.875);
+    leg->SetTextFont(72);
+    leg->SetTextSize(0.04);
+    leg->AddEntry(histoS1,"#Delta=0","l");
+    leg->AddEntry(histoS2, "#Delta=#pi/4","l");
+    leg->AddEntry(histoS3, "#Delta=#pi/2","l");
+    leg->AddEntry(histoS4, "#Delta=3#pi/4","l");
+    leg->AddEntry(histoB, "Backgrounds","l");
+    leg->Draw();
+
+    can->SaveAs(name);
 }
 
 /*

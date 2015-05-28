@@ -22,7 +22,7 @@ void cleanUpMergedFiles(TString infilename="/filepath/test.root", TString outfil
 	UInt_t n=0;
 	Float_t eventWeight;
 
-    UInt_t nProngTau1=0, nProngTau2=0, nLeptons=0;
+    UInt_t nProngTau1=0, nProngTau2=0, nLeptons=0, zToLep=0;
 
     // Jets matched to gen taus
     Float_t jetTau1_pt, jetTau2_pt;
@@ -53,6 +53,18 @@ void cleanUpMergedFiles(TString infilename="/filepath/test.root", TString outfil
     Float_t neutpions1_eta, neutpions2_eta;
     Float_t neutpions1_phi, neutpions2_phi;
     Float_t neutpions1_mass, neutpions2_mass;
+
+    // Particles from Z
+    Float_t z1_pt, z2_pt;
+    Float_t z1_eta, z2_eta;
+    Float_t z1_phi, z2_phi;
+    Float_t z1_mass, z2_mass;
+
+    // Jets matched to particles from Z
+    Float_t jetz1_pt, jetz2_pt;
+    Float_t jetz1_eta, jetz2_eta;
+    Float_t jetz1_phi, jetz2_phi;
+    Float_t jetz1_mass, jetz2_mass;
 
 	TFile* infile = new TFile(infilename); assert(infile);
 	TTree* intree = (TTree*) infile->Get("Events"); assert(intree);
@@ -100,6 +112,22 @@ void cleanUpMergedFiles(TString infilename="/filepath/test.root", TString outfil
 	intree->SetBranchAddress("neutpions2_eta",	&neutpions2_eta);
 	intree->SetBranchAddress("neutpions2_phi",	&neutpions2_phi);
 	intree->SetBranchAddress("neutpions2_mass",	&neutpions2_mass);
+	intree->SetBranchAddress("z1_pt",			&z1_pt);
+	intree->SetBranchAddress("z1_eta",			&z1_eta);
+	intree->SetBranchAddress("z1_phi",			&z1_phi);
+	intree->SetBranchAddress("z1_mass",			&z1_mass);
+	intree->SetBranchAddress("z2_pt",			&z2_pt);
+	intree->SetBranchAddress("z2_eta",			&z2_eta);
+	intree->SetBranchAddress("z2_phi",			&z2_phi);
+	intree->SetBranchAddress("z2_mass",			&z2_mass);
+	intree->SetBranchAddress("jetz1_pt",		&jetz1_pt);
+	intree->SetBranchAddress("jetz1_eta",		&jetz1_eta);
+	intree->SetBranchAddress("jetz1_phi",		&jetz1_phi);
+	intree->SetBranchAddress("jetz1_mass",		&jetz1_mass);
+	intree->SetBranchAddress("jetz2_pt",		&jetz2_pt);
+	intree->SetBranchAddress("jetz2_eta",		&jetz2_eta);
+	intree->SetBranchAddress("jetz2_phi",		&jetz2_phi);
+	intree->SetBranchAddress("jetz2_mass",		&jetz2_mass);
 
 	TTree* infotree = (TTree*) infile->Get("Count"); assert(infotree);
 	infotree->SetBranchAddress("n",      &n);
@@ -175,6 +203,26 @@ void cleanUpMergedFiles(TString infilename="/filepath/test.root", TString outfil
     outTree->Branch("neutpions2_eta",   &neutpions2_eta,     "neutpions2_eta/f");
     outTree->Branch("neutpions2_phi",   &neutpions2_phi,     "neutpions2_phi/f");
     outTree->Branch("neutpions2_mass",  &neutpions2_mass,    "neutpions2_mass/f");
+
+    outTree->Branch("z1_pt",    		&z1_pt,      		 "z1_pt/f");
+    outTree->Branch("z1_eta",   		&z1_eta,     		 "z1_eta/f");
+    outTree->Branch("z1_phi",   		&z1_phi,     		 "z1_phi/f");
+    outTree->Branch("z1_mass",  		&z1_mass,    		 "z1_mass/f");
+
+    outTree->Branch("z2_pt",    		&z2_pt,              "z2_pt/f");
+    outTree->Branch("z2_eta",   		&z2_eta,             "z2_eta/f");
+    outTree->Branch("z2_phi",   		&z2_phi,             "z2_phi/f");
+    outTree->Branch("z2_mass",  		&z2_mass,            "z2_mass/f");
+
+ 	outTree->Branch("jetz1_pt",         &jetz1_pt,           "jetz1_pt/f");
+    outTree->Branch("jetz1_eta",        &jetz1_eta,          "jetz1_eta/f");
+    outTree->Branch("jetz1_phi",        &jetz1_phi,          "jetz1_phi/f");
+    outTree->Branch("jetz1_mass",       &jetz1_mass,         "jetz1_mass/f");
+
+    outTree->Branch("jetz2_pt",         &jetz2_pt,           "jetz2_pt/f");
+    outTree->Branch("jetz2_eta",        &jetz2_eta,          "jetz2_eta/f");
+    outTree->Branch("jetz2_phi",        &jetz2_phi,          "jetz2_phi/f");
+    outTree->Branch("jetz2_mass",       &jetz2_mass,         "jetz2_mass/f");
 	
 	sampTree->Fill();
 

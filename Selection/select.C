@@ -26,12 +26,12 @@ Float_t deltaR( const Float_t eta1, const Float_t eta2, const Float_t phi1, cons
 
 using namespace baconhep;
 
-void select(const TString sample="ee", const TString tempinput="/afs/cern.ch/work/a/arapyan/public/forMarkus/higgs_cp_samples/ZH_tautau_rhorho_CP0_mad.root", const Float_t xsec = 1,
-    const Int_t eosflag = 1)
+void select(const TString sample="", const TString tempinput="ZH_tautau_rhorho_CP0_mad.root", const Float_t xsec = 1,
+    const Int_t eosflag = 0)
 {
     TString input;
     if(eosflag==1) input = "root://eoscms.cern.ch//store/user/arapyan/higgs_cp_samples/" + sample + "/Bacon/" + tempinput;
-    else input = "/afs/cern.ch/work/a/arapyan/public/forMarkus/" + sample + "/" + tempinput;
+    else input = "/afs/cern.ch/work/a/arapyan/public/forMarkus/higgs_cp_samples/" + sample + "/" + tempinput;
 
     TString output = "/afs/cern.ch/work/a/ariostas/private/CP-Higgs_temp/" + sample + "/" + tempinput;
 
@@ -64,7 +64,7 @@ void select(const TString sample="ee", const TString tempinput="/afs/cern.ch/wor
 
     Float_t eventWeight;
 
-    UInt_t nProngTau1=0, nProngTau2=0, nLeptons=0;
+    UInt_t nProngTau1=0, nProngTau2=0, nLeptons=0, zToLep=0;
 
     // Jets matched to gen taus
     Float_t jetTau1_pt, jetTau2_pt;
@@ -96,11 +96,25 @@ void select(const TString sample="ee", const TString tempinput="/afs/cern.ch/wor
     Float_t neutpions1_phi, neutpions2_phi;
     Float_t neutpions1_mass, neutpions2_mass;
 
+    // Particles from Z
+    Float_t z1_pt, z2_pt;
+    Float_t z1_eta, z2_eta;
+    Float_t z1_phi, z2_phi;
+    Float_t z1_mass, z2_mass;
+
+    // Jets matched to particles from Z
+    Float_t jetz1_pt, jetz2_pt;
+    Float_t jetz1_eta, jetz2_eta;
+    Float_t jetz1_phi, jetz2_phi;
+    Float_t jetz1_mass, jetz2_mass;
+
     outtree->Branch("eventWeight",      &eventWeight,       "eventWeight/f");   // event weight from cross-section and Event->Weight
 
     outtree->Branch("nLeptons",         &nLeptons,          "nLeptons/i");      // number of leptons
     outtree->Branch("nProngTau1",       &nProngTau1,        "nProngTau1/i");
     outtree->Branch("nProngTau2",       &nProngTau2,        "nProngTau2/i");
+
+    outtree->Branch("zToLep",           &zToLep,            "zToLep/i");
 
     outtree->Branch("jetTau1_pt",       &jetTau1_pt,        "jetTau1_pt/f");    // pt(Tau1)
     outtree->Branch("jetTau1_eta",      &jetTau1_eta,       "jetTau1_eta/f");   // eta(Tau1)
@@ -152,6 +166,26 @@ void select(const TString sample="ee", const TString tempinput="/afs/cern.ch/wor
     outtree->Branch("neutpions2_phi",   &neutpions2_phi,     "neutpions2_phi/f");
     outtree->Branch("neutpions2_mass",  &neutpions2_mass,    "neutpions2_mass/f");
 
+    outtree->Branch("z1_pt",            &z1_pt,              "z1_pt/f");
+    outtree->Branch("z1_eta",           &z1_eta,             "z1_eta/f");
+    outtree->Branch("z1_phi",           &z1_phi,             "z1_phi/f");
+    outtree->Branch("z1_mass",          &z1_mass,            "z1_mass/f");
+
+    outtree->Branch("z2_pt",            &z2_pt,              "z2_pt/f");
+    outtree->Branch("z2_eta",           &z2_eta,             "z2_eta/f");
+    outtree->Branch("z2_phi",           &z2_phi,             "z2_phi/f");
+    outtree->Branch("z2_mass",          &z2_mass,            "z2_mass/f");
+
+    outtree->Branch("jetz1_pt",         &jetz1_pt,           "jetz1_pt/f");
+    outtree->Branch("jetz1_eta",        &jetz1_eta,          "jetz1_eta/f");
+    outtree->Branch("jetz1_phi",        &jetz1_phi,          "jetz1_phi/f");
+    outtree->Branch("jetz1_mass",       &jetz1_mass,         "jetz1_mass/f");
+
+    outtree->Branch("jetz2_pt",         &jetz2_pt,           "jetz2_pt/f");
+    outtree->Branch("jetz2_eta",        &jetz2_eta,          "jetz2_eta/f");
+    outtree->Branch("jetz2_phi",        &jetz2_phi,          "jetz2_phi/f");
+    outtree->Branch("jetz2_mass",       &jetz2_mass,         "jetz2_mass/f");
+
     for (Int_t i=0; i<chain.GetEntries(); i++)
     {
         if(i%1000==0) cout << "Processing event " << i << endl;
@@ -168,8 +202,11 @@ void select(const TString sample="ee", const TString tempinput="/afs/cern.ch/wor
         Int_t iTau1=-1, iTau2=-1;
         Int_t iT1=-1, iT2=-1;
 
+        Int_t iZ1=-1, iZ2=-1;
+        Int_t ijetZ1=-1, ijetZ2=-1;
+
         // Reset variables
-        nLeptons=nProngTau1=nProngTau2=0;
+        nLeptons=nProngTau1=nProngTau2=zToLep=0;
 
         jetTau1_pt=jetTau1_eta=jetTau1_phi=jetTau1_mass=0;
         jetTau2_pt=jetTau2_eta=jetTau2_phi=jetTau2_mass=0;
@@ -186,7 +223,13 @@ void select(const TString sample="ee", const TString tempinput="/afs/cern.ch/wor
         neutpions1_pt=neutpions1_eta=neutpions1_phi=neutpions1_mass=0;
         neutpions2_pt=neutpions2_eta=neutpions2_phi=neutpions2_mass=0;
 
-        eventWeight=xsec*3000000;
+        z1_pt=z1_eta=z1_phi=z1_mass=0;
+        z2_pt=z2_eta=z2_phi=z2_mass=0;
+
+        jetz1_pt=jetz1_eta=jetz1_phi=jetz1_mass=0;
+        jetz2_pt=jetz2_eta=jetz2_phi=jetz2_mass=0;
+
+        eventWeight=xsec*10000000*0.66*0.66;
 
         Int_t isLep=0;
         for (Int_t j=0; j<part->GetEntries(); j++)
@@ -347,24 +390,81 @@ void select(const TString sample="ee", const TString tempinput="/afs/cern.ch/wor
             }
         }
 
-        /*for (Int_t j=0; j<jet->GetEntries(); j++)
+
+        for (Int_t j=0; j<jet->GetEntries(); j++)
         {
             const TGenJet* loop = (TGenJet*) ((*jet)[j]);
 
+            if(loop->pt < 10) continue;
+
             if (iT1==-1)
             {
-                if (deltaR(loop->eta,vGenTau1.Eta(),loop->phi,vGenTau1.Phi())<DR) iT1=j;
+                if (deltaR(loop->eta,vVisTau1.Eta(),loop->phi,vVisTau1.Phi())<DR){ iT1=j; continue;}
             }
             if (iT2==-1)
             {
-                if (deltaR(loop->eta,vGenTau2.Eta(),loop->phi,vGenTau2.Phi())<DR) iT2=j;
+                if (deltaR(loop->eta,vVisTau2.Eta(),loop->phi,vVisTau2.Phi())<DR){ iT2=j; continue;}
+            }
+
+            if(loop->pt < 30) continue;
+            
+            if (ijetZ1==-1)
+            {
+                ijetZ1=j;
+            }
+            else if(((TGenJet*) ((*jet)[ijetZ1]))->pt < loop->pt){
+                ijetZ2=ijetZ1;
+                ijetZ1=j;
+            }
+            else if (ijetZ2==-1)
+            {
+                ijetZ2=j;
+            }
+            else if(((TGenJet*) ((*jet)[ijetZ2]))->pt < loop->pt){
+                ijetZ2=j;
             }
         }
 
         if (iT1==-1|| iT2==-1) continue;
 
+        if(ijetZ1==-1 || ijetZ2==-1) zToLep=1;
+
+        if(zToLep){
+            for (Int_t j=0; j<part->GetEntries(); j++)
+            {
+                TGenParticle* genloop = (TGenParticle*) ((*part)[j]);
+
+                Int_t pdg=fabs(genloop->pdgId);
+                Int_t parent=genloop->parent;
+
+                if(pdg!=11 && pdg!= 13) continue;
+                if(genloop->pt < 30) continue;
+
+                if(iZ1==-1) iZ1=j;
+                else iZ2=j;
+
+            }
+
+        }
+        
+        if(zToLep && (iZ1==-1 || iZ2==-1)) continue;
+
         const TGenJet *taujet1 = (TGenJet*) ((*jet)[iT1]);
         const TGenJet *taujet2 = (TGenJet*) ((*jet)[iT2]);
+
+        const TGenJet *jetZ1, *jetZ2;
+
+        const TGenParticle *z1, *z2;
+
+        if(!zToLep){
+            jetZ1 = (TGenJet*) ((*jet)[ijetZ1]);
+            jetZ2 = (TGenJet*) ((*jet)[ijetZ2]);
+        }
+
+        if(zToLep){
+            z1 = (TGenParticle*) ((*part)[iZ1]);
+            z2 = (TGenParticle*) ((*part)[iZ2]);
+        }
 
         jetTau1_pt=taujet1->pt;
         jetTau1_eta=taujet1->eta;
@@ -374,7 +474,7 @@ void select(const TString sample="ee", const TString tempinput="/afs/cern.ch/wor
         jetTau2_pt=taujet2->pt;
         jetTau2_eta=taujet2->eta;
         jetTau2_phi=taujet2->phi;
-        jetTau2_mass=taujet2->mass;*/
+        jetTau2_mass=taujet2->mass;
 
         genTau1_pt=genTau1->pt;
         genTau1_eta=genTau1->eta;
@@ -415,6 +515,32 @@ void select(const TString sample="ee", const TString tempinput="/afs/cern.ch/wor
         neutpions2_eta=neutpions2.Eta();
         neutpions2_phi=neutpions2.Phi();
         neutpions2_mass=neutpions2.M();
+
+        
+
+        if(!zToLep){
+            jetz1_pt=jetZ1->pt;
+            jetz1_eta=jetZ1->eta;
+            jetz1_phi=jetZ1->phi;
+            jetz1_mass=jetZ1->mass;
+
+            jetz2_pt=jetZ2->pt;
+            jetz2_eta=jetZ2->eta;
+            jetz2_phi=jetZ2->phi;
+            jetz2_mass=jetZ2->mass;
+        }
+
+        if(zToLep){
+            z1_pt=z1->pt;
+            z1_eta=z1->eta;
+            z1_phi=z1->phi;
+            z1_mass=z1->mass;
+
+            z2_pt=z2->pt;
+            z2_eta=z2->eta;
+            z2_phi=z2->phi;
+            z2_mass=z2->mass;
+        }
 
         for (Int_t j=0; j<part->GetEntries(); j++)
         {
