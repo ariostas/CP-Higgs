@@ -13,6 +13,7 @@
 #include <fstream>
 #include <cmath>
 #include <fstream>
+#include <TString.h>
 
 #include <TLorentzVector.h>
 #include <TVector3.h>
@@ -22,14 +23,17 @@
 #include "TMath.h"
 #include "Math/Vector3D.h"
 
+#include "Dataset.h"
+#include "CalcT.h"
+
+using namespace std;
+
 // Declare functions
-void histogram(TH1D*, TH1D*, TH1D*, TH1D*, TH1D*, TCanvas*, const char*, const char*, const char*);
-void histogram(TH1D*, TH1D*, TH1D*, TCanvas*, const char*, const char*, const char*);
-void histogram(TH1D*, TH1D*, TCanvas*, const char*, const char*, const char*);
-void histogram(TH1D*, TCanvas*, const char*, const char*, const char*);
+void histogram(TH1D*, const TString, TCanvas*, const TString, const TString, const TString);
+void histogram(vector<TH1D*>, vector<TString>, TCanvas*, const TString, const TString, const TString);
 void saveResults();
-Double_t deltaR( const Float_t eta1, const Float_t eta2, const Float_t phi1, const Float_t phi2 );
 void analyze(TString, Double_t, Int_t);
+Double_t deltaR(const Float_t, const Float_t, const Float_t, const Float_t);
 
 // Initialize histograms
 TH1D *hThetaS0 = new TH1D("hThetaS1", "hThetaS1", 20, -3.14, 3.14);
@@ -44,7 +48,9 @@ TH1D *genhistoS3 = new TH1D("histoS3", "histoS3", 50, 50, 200);
 TH1D *genhistoS4 = new TH1D("histoS4", "histoS4", 50, 50, 200);
 TH1D *genhistoB = new TH1D("histoB", "histoB", 50, 50, 200);
 
-using namespace std;
+// Initialize data sets
+Dataset data0(1,10000), datapi4(1,10000), datapi2(1,10000), data3pi4(1,10000);
+vector<Dataset> datasets;
 
 // Initialyze storage variables
 vector<Double_t> total, selection, kinematicCuts, massCuts;
@@ -52,6 +58,7 @@ vector<Double_t> totalError, selectionError, kinematicCutsError, massCutsError;
 vector<Int_t> signalFlags;
 vector<TString> sampleNames;
 vector<TH1D*> hTheta, genhistos;
+vector<TString> histogramNames;
 
 /*
  * MAIN FUNCTION
@@ -72,6 +79,17 @@ vector<TH1D*> hTheta, genhistos;
     genhistos.push_back(genhistoS2);
     genhistos.push_back(genhistoS3);
     genhistos.push_back(genhistoS4);
+
+    histogramNames.push_back("Backgrounds");
+    histogramNames.push_back("Signal (#Delta=0)");
+    histogramNames.push_back("Signal (#Delta=#pi/4)");
+    histogramNames.push_back("Signal (#Delta=#pi/2)");
+    histogramNames.push_back("Signal (#Delta=3#pi/4)");
+
+    datasets.push_back(data0);
+    datasets.push_back(datapi4);
+    datasets.push_back(datapi2);
+    datasets.push_back(data3pi4);
     
     ifstream ifs(inputFile); if(!ifs.is_open()){cout << "Error. File " << inputFile << " not found. Exiting...\n"; return;}
     
@@ -216,7 +234,6 @@ void analyze(TString inputfile, Double_t crossSection, Int_t samp)
 
     Double_t tempSelection=0, tempSelectionError=0;
 
-
     for (Long64_t iEntry=0; iEntry<intree->GetEntries(); iEntry++)   // Event loop
     {
         intree->GetEntry(iEntry);
@@ -297,11 +314,27 @@ void analyze(TString inputfile, Double_t crossSection, Int_t samp)
             v2.SetPtEtaPhiM(jetz2_pt, jetz2_eta, jetz2_phi, jetz2_mass);
         }
 
+        TLorentzVector vInit;
+        vInit.SetPtEtaPhiE(0,0,0,240);
         vZ = v1 + v2;
 
-        vHiggs = vrho1 + vrho2;
+        vHiggs = vInit-vZ;
+
+        if(vHiggs.M()<120) continue;
 
         genhistos.at(signalFlags.at(samp))->Fill(vHiggs.M());
+
+        vector<double> vars;
+        vars.push_back(theta);
+        //vars.push_back(vHiggs.M());
+
+        if(signalFlags.at(samp)==0 /*&& iEntry < intree->GetEntries()/4*/){
+            datasets.at(0).add(vars);
+            datasets.at(1).add(vars);
+            datasets.at(2).add(vars);
+            datasets.at(3).add(vars);
+        }
+        else /*if(iEntry < intree->GetEntries()/4)*/ datasets.at(signalFlags.at(samp)-1).add(vars);
 
         tempSelection+=eventWeight;
         tempSelectionError++;
@@ -326,21 +359,54 @@ void analyze(TString inputfile, Double_t crossSection, Int_t samp)
 
 void saveResults()
 {
+    cout << endl;
+
+    TH1D *hp1 = new TH1D("hp1", "hp1", 50, -0.002, 0.004);
+    TH1D *hp2 = new TH1D("hp2", "hp2", 50, -0.002, 0.004);
+    TH1D *hp3 = new TH1D("hp3", "hp3", 50, -0.002, 0.004);
+    TH1D *hp4 = new TH1D("hp4", "hp4", 50, -0.002, 0.004);
+
+    vector<TH1D*> hp;
+    hp.push_back(hp1); hp.push_back(hp2); hp.push_back(hp3); hp.push_back(hp4);
+    vector<TString> hpNames;
+    hpNames.push_back("0 and 0"); hpNames.push_back("0 and pi/4"); hpNames.push_back("0 and pi/2"); hpNames.push_back("0 and 3pi/4");
+
+    for(Int_t i=0; i<4; i++){
+        Double_t tval = calcT(datasets.at(0),datasets.at(i));
+        cout << "T of " << hpNames.at(i) << ": " << tval << endl;
+
+        Double_t ptval;
+        srand(22);
+        Int_t pval=0;
+        Int_t nperm=200;
+        for(Int_t p=0; p<nperm; p++){
+            ptval = permCalcT(datasets.at(0),datasets.at(i));
+            hp.at(i)->Fill(ptval);
+            if(ptval > tval) pval++;
+        }
+        cout << "p of " << hpNames.at(i) << ": " << pval/Double_t(nperm) << endl << endl;
+
+    }
 
     TCanvas *c1 = new TCanvas("Histogram", "Histogram", 1000, 600);
 
     gStyle->SetOptStat(kFALSE);
 
-    histogram(hThetaS0, hThetaSpi4, hThetaSpi2, hThetaS3pi4, hThetaB, c1, "#Theta variable", "Fraction", "Theta.jpg");
-    histogram(genhistoS1, genhistoS2, genhistoS3, genhistoS4, genhistoB, c1, "Z mass", "Fraction", "histo.jpg");
+    histogram(hTheta, histogramNames, c1, "#Theta variable", "Fraction", "Theta.jpg");
+    histogram(genhistos, histogramNames, c1, "H mass", "Fraction", "histo.jpg");
 
-    TFile f("histos.root","new");
+    for(Int_t i=0; i<4; i++){
+        TString filename="p_"; filename+=i; filename+=".jpg";
+        histogram(hp.at(i), hpNames.at(i), c1, "p distribution", "Fraction", filename);
+    }
+
+    /*TFile f("histos.root","new");
     hThetaS0->Write();
     hThetaSpi4->Write();
     hThetaSpi2->Write();
     hThetaS3pi4->Write();
     hThetaB->Write();
-    f.Close();
+    f.Close();*/
 
     cout << "\n\n\nProcess finished\nPrinting results...\n\n" << "\033[1;34mResults\033[0m\n\n";
     
@@ -356,183 +422,67 @@ void saveResults()
 }
 
 /*
- * FUNCTION FOR SAVING FIVE HISTOGRAMS
- */
-
-void histogram(TH1D *histoS1, TH1D *histoS2, TH1D *histoS3, TH1D *histoS4, TH1D *histoB, TCanvas *can, const char* xTitle, const char* yTitle, const char* name)
-{
-    Double_t nS1=1, nS2=1, nS3=1, nS4=1, nB=1;
-
-    nS1/=histoS1->Integral();
-    nS2/=histoS2->Integral();
-    nS3/=histoS3->Integral();
-    nS4/=histoS4->Integral();
-    nB/=histoB->Integral();
-    histoS1->Scale(nS1);
-    histoS2->Scale(nS2);
-    histoS3->Scale(nS3);
-    histoS4->Scale(nS4);
-    histoB->Scale(nB);
-
-    Double_t max=histoB->GetMaximum();
-    if(histoS1->GetMaximum() > max) max=histoS1->GetMaximum();
-    if(histoS2->GetMaximum() > max) max=histoS2->GetMaximum();
-    if(histoS3->GetMaximum() > max) max=histoS3->GetMaximum();
-    if(histoS4->GetMaximum() > max) max=histoS4->GetMaximum();
-    max*=1.1;
-
-    histoS1->SetMaximum(max);
-    histoS2->SetMaximum(max);
-    histoS3->SetMaximum(max);
-    histoS4->SetMaximum(max);
-    histoB->SetMaximum(max);
-
-    histoS1->SetLineWidth(3);
-    histoS2->SetLineWidth(3);
-    histoS3->SetLineWidth(3);
-    histoS4->SetLineWidth(3);
-    histoB->SetLineWidth(3);
-
-    histoS1->Draw();
-    // add axis labels
-    histoS1->GetXaxis()->SetTitle(xTitle);
-    histoS1->GetYaxis()->SetTitle(yTitle);
-    histoS1->SetTitle(""); // title on top
-
-    histoS2->SetLineColor(kGreen);
-    histoS2->Draw("same");
-
-    histoS3->SetLineColor(kGreen+3);
-    histoS3->Draw("same");
-
-    histoS4->SetLineColor(kMagenta+2);
-    histoS4->Draw("same");
-
-    histoB->SetLineColor(kRed);
-    histoB->Draw("same");
-
-    TLegend *leg = new TLegend(0.605,0.675,0.885,0.875);
-    leg->SetTextFont(72);
-    leg->SetTextSize(0.04);
-    leg->AddEntry(histoS1,"#Delta=0","l");
-    leg->AddEntry(histoS2, "#Delta=#pi/4","l");
-    leg->AddEntry(histoS3, "#Delta=#pi/2","l");
-    leg->AddEntry(histoS4, "#Delta=3#pi/4","l");
-    leg->AddEntry(histoB, "Backgrounds","l");
-    leg->Draw();
-
-    can->SaveAs(name);
-}
-
-/*
- * FUNCTION FOR SAVING THREE HISTOGRAMS
- */
-
-void histogram(TH1D *histoS1, TH1D *histoS2, TH1D *histoB, TCanvas *can, const char* xTitle, const char* yTitle, const char* name)
-{
-    Double_t nS1=1, nS2=1, nB=1;
-
-    nS1/=histoS1->Integral();
-    nS2/=histoS2->Integral();
-    nB/=histoB->Integral();
-    histoS1->Scale(nS1);
-    histoS2->Scale(nS2);
-    histoB->Scale(nB);
-
-    Double_t max=histoB->GetMaximum();
-    if(histoS1->GetMaximum() > max) max=histoS1->GetMaximum();
-    if(histoS2->GetMaximum() > max) max=histoS2->GetMaximum();
-    max*=1.1;
-
-    histoS1->SetMaximum(max);
-    histoS2->SetMaximum(max);
-    histoB->SetMaximum(max);
-
-    histoS1->SetLineWidth(3);
-    histoS2->SetLineWidth(3);
-    histoB->SetLineWidth(3);
-
-    histoS1->Draw();
-    // add axis labels
-    histoS1->GetXaxis()->SetTitle(xTitle);
-    histoS1->GetYaxis()->SetTitle(yTitle);
-    histoS1->SetTitle(""); // title on top
-
-    histoS2->SetLineColor(kGreen);
-    histoS2->Draw("same");
-
-    histoB->SetLineColor(kRed);
-    histoB->Draw("same");
-
-    TLegend *leg = new TLegend(0.605,0.675,0.885,0.875);
-    leg->SetTextFont(72);
-    leg->SetTextSize(0.04);
-    leg->AddEntry(histoS1,"#Delta=0","l");
-    leg->AddEntry(histoS2, "#Delta=#pi/2","l");
-    leg->AddEntry(histoB, "Backgrounds","l");
-    leg->Draw();
-
-    can->SaveAs(name);
-}
-
-/*
- * FUNCTION FOR SAVING TWO HISTOGRAMS
- */
-
-void histogram(TH1D *histoS, TH1D *histoB, TCanvas *can, const char* xTitle, const char* yTitle, const char* name)
-{
-    Double_t nS=1, nB=1;
-
-    nS/=histoS->Integral();
-    nB/=histoB->Integral();
-    histoS->Scale(nS);
-    histoB->Scale(nB);
-
-    Double_t max;
-    if((histoS->GetMaximum()) > (histoB->GetMaximum())) max=1.1*(histoS->GetMaximum());
-    else max=1.1*(histoB->GetMaximum());
-
-    histoS->SetMaximum(max);
-    histoB->SetMaximum(max);
-
-    histoS->SetLineWidth(3);
-    histoB->SetLineWidth(3);
-
-    histoS->Draw();
-    // add axis labels
-    histoS->GetXaxis()->SetTitle(xTitle);
-    histoS->GetYaxis()->SetTitle(yTitle);
-    histoS->SetTitle(""); // title on top
-
-    histoB->SetLineColor(kRed);
-    histoB->Draw("same");
-
-    TLegend *leg = new TLegend(0.6,0.65,0.88,0.85);
-    leg->SetTextFont(72);
-    leg->SetTextSize(0.04);
-    leg->AddEntry(histoS,"#Delta=0","l");
-    leg->AddEntry(histoB, "#Delta=#pi/2","l");
-    leg->Draw();
-
-    can->SaveAs(name);
-}
-
-/*
  * FUNCTION FOR SAVING ONE HISTOGRAM
  */
 
-void histogram(TH1D *histo, TCanvas *can, const char* xTitle, const char* yTitle, const char* name)
-{
+void histogram(TH1D *histo, const TString histName, TCanvas *can, const TString xTitle, const TString yTitle, const TString name){
     Double_t norm=1;
     norm/=histo->Integral();
     histo->Scale(norm);
     histo->SetLineWidth(3);
-    //histo->Fit("gaus","V");
     histo->Draw();
     // add axis labels
     histo->GetXaxis()->SetTitle(xTitle);
     histo->GetYaxis()->SetTitle(yTitle);
-    histo->SetTitle(""); // title on top
+    histo->SetTitle(histName); // title on top
+
+    can->SaveAs(name);
+}
+
+/*
+ * FUNCTION FOR SAVING MULTIPLE HISTOGRAMS
+ */
+
+void histogram(vector<TH1D*> histos, vector<TString> histNames, TCanvas *can, const TString xTitle, const TString yTitle, const TString name){   
+    
+    if(histos.size()!=histNames.size()){ cout << "Number of histograms and names don't match." << endl; return;}
+
+    Double_t max=0, min=1;
+
+    for(Int_t i=0; i<histos.size(); i++){
+        histos.at(i)->Scale(Double_t(1)/histos.at(i)->Integral());
+        if(histos.at(i)->GetMaximum()>max) max=histos.at(i)->GetMaximum();
+        if(histos.at(i)->GetMinimum()<min) min=histos.at(i)->GetMinimum();
+    }
+
+    max*=1.1;
+    min*=0.9;
+
+    vector<Int_t> colors;
+    colors.push_back(kRed); colors.push_back(kBlue); colors.push_back(kGreen); colors.push_back(kGreen+3); colors.push_back(kMagenta+2); colors.push_back(kBlack); 
+
+    for(Int_t i=0; i<histos.size(); i++){
+        histos.at(i)->SetMaximum(max);
+        histos.at(i)->SetMinimum(min);
+        histos.at(i)->SetLineWidth(3);
+        histos.at(i)->SetLineColor(colors.at(i%6));
+        if(i==0){
+            histos.at(i)->GetXaxis()->SetTitle(xTitle);
+            histos.at(i)->GetYaxis()->SetTitle(yTitle);
+            histos.at(i)->SetTitle("");
+            histos.at(i)->Draw();
+        }
+        else histos.at(i)->Draw("same");
+        
+    }
+
+    TLegend *leg = new TLegend(0.605,0.675,0.885,0.875);
+    leg->SetTextFont(72);
+    leg->SetTextSize(0.04);
+    for(Int_t i=0; i<histos.size(); i++){
+        leg->AddEntry(histos.at(i),histNames.at(i),"l");
+    }
+    leg->Draw();
 
     can->SaveAs(name);
 }
