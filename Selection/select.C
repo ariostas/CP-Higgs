@@ -108,6 +108,9 @@ void select(const TString sample="", const TString tempinput="ZH_tautau_rhorho_C
     Float_t jetz1_phi, jetz2_phi;
     Float_t jetz1_mass, jetz2_mass;
 
+    // Z
+    Float_t z_pt, z_eta, z_phi, z_mass;
+
     outtree->Branch("eventWeight",      &eventWeight,       "eventWeight/f");   // event weight from cross-section and Event->Weight
 
     outtree->Branch("nLeptons",         &nLeptons,          "nLeptons/i");      // number of leptons
@@ -186,9 +189,14 @@ void select(const TString sample="", const TString tempinput="ZH_tautau_rhorho_C
     outtree->Branch("jetz2_phi",        &jetz2_phi,          "jetz2_phi/f");
     outtree->Branch("jetz2_mass",       &jetz2_mass,         "jetz2_mass/f");
 
+    outtree->Branch("z_pt",            &z_pt,              "z_pt/f");
+    outtree->Branch("z_eta",           &z_eta,             "z_eta/f");
+    outtree->Branch("z_phi",           &z_phi,             "z_phi/f");
+    outtree->Branch("z_mass",          &z_mass,            "z_mass/f");
+
     for (Int_t i=0; i<chain.GetEntries(); i++)
     {
-        if(i%1000==0) cout << "Processing event " << i << endl;
+        if(i==0 || (i+1)%1000==0) cout << "Processing event " << i+1 << endl;
 
         infoBr->GetEntry(i);
 
@@ -204,6 +212,8 @@ void select(const TString sample="", const TString tempinput="ZH_tautau_rhorho_C
 
         Int_t iZ1=-1, iZ2=-1;
         Int_t ijetZ1=-1, ijetZ2=-1;
+
+        Int_t iZ=-1;
 
         // Reset variables
         nLeptons=nProngTau1=nProngTau2=zToLep=0;
@@ -228,6 +238,8 @@ void select(const TString sample="", const TString tempinput="ZH_tautau_rhorho_C
 
         jetz1_pt=jetz1_eta=jetz1_phi=jetz1_mass=0;
         jetz2_pt=jetz2_eta=jetz2_phi=jetz2_mass=0;
+
+        z_pt=z_eta=z_phi=z_mass=0;
 
         eventWeight=xsec*10000000*0.66*0.66;
 
@@ -293,6 +305,15 @@ void select(const TString sample="", const TString tempinput="ZH_tautau_rhorho_C
 
             Int_t pdg=fabs(genloop->pdgId);
             Int_t parent=genloop->parent;
+
+            if(pdg==23){
+                if(iZ==-1){
+                    iZ=j;
+                }
+                else if(parent=iZ){
+                    iZ=j;
+                }
+            }
 
             if((pdg==213 || pdg==20213) && parent==iTau1)
             {
@@ -399,14 +420,43 @@ void select(const TString sample="", const TString tempinput="ZH_tautau_rhorho_C
 
             if (iT1==-1)
             {
-                if (deltaR(loop->eta,vVisTau1.Eta(),loop->phi,vVisTau1.Phi())<DR){ iT1=j; continue;}
+                if(deltaR(loop->eta,vVisTau1.Eta(),loop->phi,vVisTau1.Phi())<DR){
+                    iT1=j;
+                    continue;
+                }
             }
-            if (iT2==-1)
+            if(iT1!=-1 && ((TGenJet*) ((*jet)[iT1]))->pt < loop->pt){
+                if(deltaR(loop->eta,vVisTau1.Eta(),loop->phi,vVisTau1.Phi())<DR){
+                    iT1=j;
+                    continue;
+                }
+            }
+            if (ijetZ2==-1)
             {
-                if (deltaR(loop->eta,vVisTau2.Eta(),loop->phi,vVisTau2.Phi())<DR){ iT2=j; continue;}
+                if(deltaR(loop->eta,vVisTau2.Eta(),loop->phi,vVisTau2.Phi())<DR){
+                    iT2=j;
+                    continue;
+                }
+            }
+            if(iT2!=-1 && ((TGenJet*) ((*jet)[iT2]))->pt < loop->pt){
+                if(deltaR(loop->eta,vVisTau2.Eta(),loop->phi,vVisTau2.Phi())<DR){
+                  iT2=j;
+                  continue;
+                }
             }
 
+        }
+
+        if (iT1==-1|| iT2==-1) continue;
+
+        for (Int_t j=0; j<jet->GetEntries(); j++)
+        {
+            const TGenJet* loop = (TGenJet*) ((*jet)[j]);
+
             if(loop->pt < 30) continue;
+
+            if(deltaR(((TGenJet*) ((*jet)[iT1]))->eta, loop->eta, ((TGenJet*) ((*jet)[iT1]))->phi, loop->phi)<DR) continue;
+            if(deltaR(((TGenJet*) ((*jet)[iT2]))->eta, loop->eta, ((TGenJet*) ((*jet)[iT2]))->phi, loop->phi)<DR) continue;
             
             if (ijetZ1==-1)
             {
@@ -425,8 +475,6 @@ void select(const TString sample="", const TString tempinput="ZH_tautau_rhorho_C
             }
         }
 
-        if (iT1==-1|| iT2==-1) continue;
-
         if(ijetZ1==-1 || ijetZ2==-1) zToLep=1;
 
         if(zToLep){
@@ -440,8 +488,41 @@ void select(const TString sample="", const TString tempinput="ZH_tautau_rhorho_C
                 if(pdg!=11 && pdg!= 13) continue;
                 if(genloop->pt < 30) continue;
 
-                if(iZ1==-1) iZ1=j;
-                else iZ2=j;
+                if(deltaR(((TGenJet*) ((*jet)[iT1]))->eta, genloop->eta, ((TGenJet*) ((*jet)[iT1]))->phi, genloop->phi)<DR) continue;
+                if(deltaR(((TGenJet*) ((*jet)[iT2]))->eta, genloop->eta, ((TGenJet*) ((*jet)[iT2]))->phi, genloop->phi)<DR) continue;
+
+                if (iZ1==-1)
+                {
+                    iZ1=j;
+                }
+                else if(((TGenParticle*) ((*part)[iZ1]))->pt < genloop->pt){
+                    iZ1=j;
+                }
+            }
+
+            if(iZ1==-1) continue;
+
+            for (Int_t j=0; j<part->GetEntries(); j++)
+            {
+                TGenParticle* genloop = (TGenParticle*) ((*part)[j]);
+
+                Int_t pdg=fabs(genloop->pdgId);
+                Int_t parent=genloop->parent;
+
+                if(pdg!=11 && pdg!= 13) continue;
+                if(genloop->pt < 30) continue;
+                if(iZ1==j) continue;
+                if(pdg!=fabs(((TGenParticle*) ((*part)[iZ1]))->pdgId)) continue;
+                if(deltaR(((TGenJet*) ((*jet)[iT1]))->eta, genloop->eta, ((TGenJet*) ((*jet)[iT1]))->phi, genloop->phi)<DR) continue;
+                if(deltaR(((TGenJet*) ((*jet)[iT2]))->eta, genloop->eta, ((TGenJet*) ((*jet)[iT2]))->phi, genloop->phi)<DR) continue;
+
+                if (iZ2==-1)
+                {
+                    iZ2=j;
+                }
+                else if(((TGenParticle*) ((*part)[iZ2]))->pt < genloop->pt){
+                    iZ2=j;
+                }
 
             }
 
@@ -464,6 +545,15 @@ void select(const TString sample="", const TString tempinput="ZH_tautau_rhorho_C
         if(zToLep){
             z1 = (TGenParticle*) ((*part)[iZ1]);
             z2 = (TGenParticle*) ((*part)[iZ2]);
+        }
+
+        if(iZ!=-1){
+            const TGenParticle *parZ = (TGenParticle*) ((*part)[iZ]);
+
+            z_pt = parZ->pt;
+            z_eta = parZ->eta;
+            z_phi = parZ->phi;
+            z_mass = parZ->mass;
         }
 
         jetTau1_pt=taujet1->pt;

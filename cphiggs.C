@@ -27,6 +27,7 @@
 #include "CalcT.h"
 
 using namespace std;
+using namespace TMath;
 
 // Declare functions
 void histogram(TH1D*, const TString, TCanvas*, const TString, const TString, const TString);
@@ -34,6 +35,10 @@ void histogram(vector<TH1D*>, vector<TString>, TCanvas*, const TString, const TS
 void saveResults();
 void analyze(TString, Double_t, Int_t);
 Double_t deltaR(const Float_t, const Float_t, const Float_t, const Float_t);
+Double_t getTheta(TLorentzVector, TLorentzVector, TLorentzVector, TLorentzVector, TLorentzVector, TLorentzVector);
+TLorentzVector getNeut1Sol1(TLorentzVector, TLorentzVector, TLorentzVector, TLorentzVector);
+TLorentzVector getNeut1Sol2(TLorentzVector, TLorentzVector, TLorentzVector, TLorentzVector);
+TLorentzVector getNeut2(TLorentzVector, TLorentzVector, TLorentzVector, TLorentzVector, TLorentzVector);
 
 // Initialize histograms
 TH1D *hThetaS0 = new TH1D("hThetaS1", "hThetaS1", 20, -3.14, 3.14);
@@ -142,6 +147,8 @@ void analyze(TString inputfile, Double_t crossSection, Int_t samp)
 
     cout << inputfile;
 
+    Double_t wrong=0, totalE=0;
+
     // Set up storage variables
     Float_t genTau1_pt, genTau2_pt;
     Float_t genTau1_eta, genTau2_eta;
@@ -172,15 +179,15 @@ void analyze(TString inputfile, Double_t crossSection, Int_t samp)
     Float_t jetz1_phi, jetz2_phi;
     Float_t jetz1_mass, jetz2_mass;
 
+    // Z
+    Float_t z_pt, z_eta, z_phi, z_mass;
+
     Float_t eventWeight;
 
-    TLorentzVector vtau1, vtau2, vcpion1, vcpion2, vnpion1, vnpion2, vHiggs, vrho1, vrho2, vq1, vq2;
-    TVector3 v3Higgs, vE1, vE2, vB1, vB2, v3tau1, v3tau2;
+    TLorentzVector vTau1Sol1, vTau1Sol2, vTau2Sol1, vTau2Sol2, vcpion1, vcpion2, vnpion1, vnpion2, vHiggs, vrho1, vrho2;
     UInt_t nProngTau1=0, nProngTau2=0, nLeptons=0, zToLep=0;
 
-    Float_t y1, y2;
-    Float_t r=0.14;
-    Float_t theta;
+    Double_t thetaSol1, thetaSol2;
 
     TFile* infile = new TFile(inputFileTemp);
     assert(infile);
@@ -231,6 +238,10 @@ void analyze(TString inputfile, Double_t crossSection, Int_t samp)
     intree->SetBranchAddress("jetz2_eta",       &jetz2_eta);
     intree->SetBranchAddress("jetz2_phi",       &jetz2_phi);
     intree->SetBranchAddress("jetz2_mass",      &jetz2_mass);
+    intree->SetBranchAddress("z_pt",           &z_pt);
+    intree->SetBranchAddress("z_eta",          &z_eta);
+    intree->SetBranchAddress("z_phi",          &z_phi);
+    intree->SetBranchAddress("z_mass",         &z_mass);
 
     Double_t tempSelection=0, tempSelectionError=0;
 
@@ -239,11 +250,6 @@ void analyze(TString inputfile, Double_t crossSection, Int_t samp)
         intree->GetEntry(iEntry);
 
         if(pions1_pt==0 || pions2_pt==0 || neutpions1_pt==0 || neutpions2_pt==0 || nProngTau1!=1 || nProngTau2!=1) continue;
-        if(genTau1_pt < 10 || genTau2_pt< 10) continue;
-
-        // Taus 4-vectors
-        vtau1.SetPtEtaPhiM(genTau1_pt, genTau1_eta, genTau1_phi, genTau1_mass);
-        vtau2.SetPtEtaPhiM(genTau2_pt, genTau2_eta, genTau2_phi, genTau2_mass);
 
         // Charged pions 4-vectors
         vcpion1.SetPtEtaPhiM(pions1_pt, pions1_eta, pions1_phi, pions1_mass);
@@ -256,52 +262,6 @@ void analyze(TString inputfile, Double_t crossSection, Int_t samp)
         // Rho 4-vectors
         vrho1=vcpion1+vnpion1;
         vrho2=vcpion2+vnpion2;
-
-        // Higgs 4- and 3-vector
-        vHiggs=vtau1+vtau2;
-        v3Higgs.SetXYZ(-vHiggs.Px()/vHiggs.E(), -vHiggs.Py()/vHiggs.E(), -vHiggs.Pz()/vHiggs.E());
-
-        vq1=vcpion1-vnpion1;
-        vq2=vcpion2-vnpion2;
-
-        y1=(vq1.Dot(vtau1))/(vrho1.Dot(vtau1));
-        y2=(vq2.Dot(vtau2))/(vrho2.Dot(vtau2));
-
-        // Boost to Higgs frame
-        vcpion1.Boost(v3Higgs);
-        vcpion2.Boost(v3Higgs);
-        vnpion1.Boost(v3Higgs);
-        vnpion2.Boost(v3Higgs);
-        vtau1.Boost(v3Higgs);
-        vtau2.Boost(v3Higgs);
-
-        // Set up 3-vectors in Higgs frame
-        TVector3 v3cpion1, v3cpion2, v3npion1, v3npion2;
-
-        v3tau1.SetXYZ(vtau1.Px()/vtau1.E(), vtau1.Py()/vtau1.E(), vtau1.Pz()/vtau1.E());
-        v3tau2.SetXYZ(vtau2.Px()/vtau2.E(), vtau2.Py()/vtau2.E(), vtau2.Pz()/vtau2.E());
-
-        v3cpion1.SetXYZ(vcpion1.Px()/vcpion1.E(), vcpion1.Py()/vcpion1.E(), vcpion1.Pz()/vcpion1.E());
-        v3cpion2.SetXYZ(vcpion2.Px()/vcpion2.E(), vcpion2.Py()/vcpion2.E(), vcpion2.Pz()/vcpion2.E());
-        v3npion1.SetXYZ(vnpion1.Px()/vnpion1.E(), vnpion1.Py()/vnpion1.E(), vnpion1.Pz()/vnpion1.E());
-        v3npion2.SetXYZ(vnpion2.Px()/vnpion2.E(), vnpion2.Py()/vnpion2.E(), vnpion2.Pz()/vnpion2.E());
-
-        TVector3 tempE1, tempE2;
-
-        tempE1=(y1-r)*v3cpion1-(y1+r)*v3npion1;
-        tempE2=(y2-r)*v3cpion2-(y2+r)*v3npion2;
-
-        vE1=tempE1-(tempE1.Dot(v3tau1))*v3tau1;
-        vE2=tempE2-(tempE2.Dot(v3tau2))*v3tau2;
-
-        vB1=v3tau1.Cross(vE1);
-        vB2=v3tau2.Cross(vE2);
-
-        // Compute theta variable
-        theta=TMath::Sign(Double_t(1),v3tau1.Dot(vE2.Cross(vE1)))*TMath::ACos(vE1.Dot(vE2)/(vE1.Mag()*vE2.Mag()));
-
-        // Fill histogram for theta variable
-        hTheta.at(signalFlags.at(samp))->Fill(theta);
 
         TLorentzVector v1, v2, vZ;
 
@@ -317,24 +277,58 @@ void analyze(TString inputfile, Double_t crossSection, Int_t samp)
         TLorentzVector vInit;
         vInit.SetPtEtaPhiE(0,0,0,240);
         vZ = v1 + v2;
+        //vZ.SetPtEtaPhiM(z_pt, z_eta, z_phi, z_mass);
 
         vHiggs = vInit-vZ;
 
-        if(vHiggs.M()<120) continue;
+        vTau1Sol1.SetPtEtaPhiM(genTau1_pt, genTau1_eta, genTau1_phi, genTau1_mass);
+        //vTau2Sol1.SetPtEtaPhiM(genTau2_pt, genTau2_eta, genTau2_phi, genTau2_mass);
+
+        TLorentzVector vNeutrino1 = vTau1Sol1 - vrho1;
+        TLorentzVector vNeutrino2 = vTau2Sol1 - vrho2;
+
+        cout << "Real  :" << vNeutrino1.E() << " " << vNeutrino1.X() << " " << vNeutrino1.Y() << " " << vNeutrino1.Z() << endl;
+
+        TLorentzVector vNeutrino1Sol1 = getNeut1Sol1(vZ, vInit, vrho1, vrho2);
+        TLorentzVector vNeutrino2Sol1 = getNeut2(vrho1, vrho2, vNeutrino1Sol1, vZ, vInit);
+
+        TLorentzVector vNeutrino1Sol2 = getNeut1Sol2(vZ, vInit, vrho1, vrho2);
+        TLorentzVector vNeutrino2Sol2 = getNeut2(vrho1, vrho2, vNeutrino1Sol2, vZ, vInit);
+
+        cout << "Reco1 :" << vNeutrino1Sol1.E() << " " << vNeutrino1Sol1.X() << " " << vNeutrino1Sol1.Y() << " " << vNeutrino1Sol1.Z() << endl;
+        cout << "Reco2 :" << vNeutrino1Sol2.E() << " " << vNeutrino1Sol2.X() << " " << vNeutrino1Sol2.Y() << " " << vNeutrino1Sol2.Z() << endl << endl;
+
+        //cout << vNeutrino1Sol1.E() << " " << vNeutrino1Sol1.X() << " " << vNeutrino1Sol1.Y() << " " << vNeutrino1Sol1.Z() << endl;
+
+        vTau1Sol1 = vrho1 + vNeutrino1Sol1;
+        vTau2Sol1 = vrho2 + vNeutrino2Sol1;
+
+        vTau1Sol2 = vrho1 + vNeutrino1Sol2;
+        vTau2Sol2 = vrho2 + vNeutrino2Sol2;
+
+        // Compute theta variable
+        thetaSol1 = getTheta(vcpion1, vnpion1, vcpion2, vnpion2, vTau1Sol1, vTau2Sol1);
+        thetaSol2 = getTheta(vcpion1, vnpion1, vcpion2, vnpion2, vTau1Sol2, vTau2Sol2);
+
+        if(thetaSol1 != thetaSol1 && thetaSol2 != thetaSol2) wrong++;
+        totalE++;
+
+        // Fill histogram for theta variable
+        if(thetaSol1 == thetaSol1) hTheta.at(signalFlags.at(samp))->Fill(thetaSol1);
+        if(thetaSol2 == thetaSol2) hTheta.at(signalFlags.at(samp))->Fill(thetaSol2);
 
         genhistos.at(signalFlags.at(samp))->Fill(vHiggs.M());
 
         vector<double> vars;
-        vars.push_back(theta);
-        //vars.push_back(vHiggs.M());
+        vars.push_back(thetaSol1);
 
-        if(signalFlags.at(samp)==0 /*&& iEntry < intree->GetEntries()/4*/){
+        if(signalFlags.at(samp)==0 && iEntry < intree->GetEntries()/100 && thetaSol1 == thetaSol1){
             datasets.at(0).add(vars);
             datasets.at(1).add(vars);
             datasets.at(2).add(vars);
             datasets.at(3).add(vars);
         }
-        else /*if(iEntry < intree->GetEntries()/4)*/ datasets.at(signalFlags.at(samp)-1).add(vars);
+        else if(iEntry < intree->GetEntries()/100 && thetaSol1 == thetaSol1) datasets.at(signalFlags.at(samp)-1).add(vars);
 
         tempSelection+=eventWeight;
         tempSelectionError++;
@@ -351,6 +345,8 @@ void analyze(TString inputfile, Double_t crossSection, Int_t samp)
     cout << (signalFlags.at(samp) ? "\033[1;32m" : (out == "0       " ?  "\033[1;34m": "\033[1;31m")) << out << "\033[0m" << " events passed all cuts" << endl;
 
     infile->Close();
+
+    cout << wrong/totalE << endl;
 }
 
 /*
@@ -503,4 +499,2125 @@ Double_t deltaR( const Float_t eta1, const Float_t eta2, const Float_t phi1, con
 
     return TMath::Sqrt(deltaRSquared);
 
+}
+
+/*
+ * FUNCTION FOR COMPUTING THE THETA VARIABLE
+ */
+
+Double_t getTheta(TLorentzVector vcpion1, TLorentzVector vnpion1, TLorentzVector vcpion2, TLorentzVector vnpion2, TLorentzVector vTau1, TLorentzVector vTau2){
+
+        Double_t r=0.14;
+
+        TLorentzVector vHiggs = vTau1 + vTau2;
+
+        TLorentzVector vRho1 = vcpion1 + vnpion1;
+        TLorentzVector vRho2 = vcpion2 + vnpion2;
+
+        TVector3 v3Higgs;
+        v3Higgs.SetXYZ(vHiggs.Px()/vHiggs.E(), vHiggs.Py()/vHiggs.E(), vHiggs.Pz()/vHiggs.E());
+
+        TLorentzVector vq1=vcpion1-vnpion1;
+        TLorentzVector vq2=vcpion2-vnpion2;
+
+        Double_t y1=(vq1.Dot(vTau1))/(vRho1.Dot(vTau1));
+        Double_t y2=(vq2.Dot(vTau2))/(vRho2.Dot(vTau2));
+
+        // Boost vectors to Higgs frame
+        vcpion1.Boost(-v3Higgs);
+        vcpion2.Boost(-v3Higgs);
+        vnpion1.Boost(-v3Higgs);
+        vnpion2.Boost(-v3Higgs);
+        vTau1.Boost(-v3Higgs);
+        vTau2.Boost(-v3Higgs);
+
+        // Set up 3-vectors in Higgs frame
+        TVector3 v3cpion1, v3cpion2, v3npion1, v3npion2;
+
+        TVector3 v3tau1, v3tau2;
+        v3tau1.SetXYZ(vTau1.Px()/vTau1.E(), vTau1.Py()/vTau1.E(), vTau1.Pz()/vTau1.E());
+        v3tau2.SetXYZ(vTau2.Px()/vTau2.E(), vTau2.Py()/vTau2.E(), vTau2.Pz()/vTau2.E());
+
+        v3cpion1.SetXYZ(vcpion1.Px()/vcpion1.E(), vcpion1.Py()/vcpion1.E(), vcpion1.Pz()/vcpion1.E());
+        v3cpion2.SetXYZ(vcpion2.Px()/vcpion2.E(), vcpion2.Py()/vcpion2.E(), vcpion2.Pz()/vcpion2.E());
+        v3npion1.SetXYZ(vnpion1.Px()/vnpion1.E(), vnpion1.Py()/vnpion1.E(), vnpion1.Pz()/vnpion1.E());
+        v3npion2.SetXYZ(vnpion2.Px()/vnpion2.E(), vnpion2.Py()/vnpion2.E(), vnpion2.Pz()/vnpion2.E());
+
+        TVector3 tempE1, tempE2;
+
+        tempE1=(y1-r)*v3cpion1-(y1+r)*v3npion1;
+        tempE2=(y2-r)*v3cpion2-(y2+r)*v3npion2;
+
+        TVector3 vE1=tempE1-(tempE1.Dot(v3tau1))*v3tau1;
+        TVector3 vE2=tempE2-(tempE2.Dot(v3tau2))*v3tau2;
+
+        // Compute theta variable
+        return TMath::Sign(Double_t(1),v3tau1.Dot(vE2.Cross(vE1)))*TMath::ACos(vE1.Dot(vE2)/(vE1.Mag()*vE2.Mag()));
+
+ }
+
+/* 
+ * FUNCTION FOR GETTING THE 4-MOMENTUM OF THE FIRST NEUTRINO (sOLUTION 1)
+ */
+
+TLorentzVector getNeut1Sol1(TLorentzVector vZ, TLorentzVector vInit, TLorentzVector vRho1, TLorentzVector vRho2){
+
+    TLorentzVector vHiggs = vInit - vZ;
+
+    TVector3 v3Higgs;
+    v3Higgs.SetXYZ(vHiggs.Px()/vHiggs.E(), vHiggs.Py()/vHiggs.E(), vHiggs.Pz()/vHiggs.E());
+
+    // Boost vectors to Higgs frame
+    vHiggs.Boost(-v3Higgs);
+    vRho1.Boost(-v3Higgs);
+    vRho2.Boost(-v3Higgs);
+
+    Double_t Etau = vHiggs.E()/2, Mtau = 1.77682;
+
+    //cout << vRho1.E() << " " << vRho1.X() << " " << vRho1.Y() << " " << vRho1.Z() << endl;
+
+    Double_t Prho1x = vRho1.X(), Prho1y = vRho1.Y(), Prho1z = vRho1.Z();
+    Double_t Prho2x = vRho2.X(), Prho2y = vRho2.Y(), Prho2z = vRho2.Z();
+
+    Double_t Enu1 = Etau - vRho1.E(), Enu2 = Etau - vRho2.E();
+
+    Double_t Px = (4*Power(Enu2,2)*Power(Prho1y,2)*Prho2x - 
+        4*Power(Etau,2)*Power(Prho1y,2)*Prho2x + 4*Power(Mtau,2)*Power(Prho1y,2)*Prho2x + 
+        4*Power(Enu2,2)*Power(Prho1z,2)*Prho2x - 4*Power(Etau,2)*Power(Prho1z,2)*Prho2x + 
+        4*Power(Mtau,2)*Power(Prho1z,2)*Prho2x - 8*Prho1x*Power(Prho1y,2)*Power(Prho2x,2) - 
+        8*Prho1x*Power(Prho1z,2)*Power(Prho2x,2) - 4*Power(Prho1y,2)*Power(Prho2x,3) - 
+        4*Power(Prho1z,2)*Power(Prho2x,3) - 4*Power(Enu2,2)*Prho1x*Prho1y*Prho2y + 
+        4*Power(Etau,2)*Prho1x*Prho1y*Prho2y - 4*Power(Mtau,2)*Prho1x*Prho1y*Prho2y + 
+        4*Power(Enu1,2)*Prho1y*Prho2x*Prho2y - 4*Power(Etau,2)*Prho1y*Prho2x*Prho2y + 
+        4*Power(Mtau,2)*Prho1y*Prho2x*Prho2y + 12*Power(Prho1x,2)*Prho1y*Prho2x*Prho2y - 
+        4*Power(Prho1y,3)*Prho2x*Prho2y - 4*Prho1y*Power(Prho1z,2)*Prho2x*Prho2y + 
+        4*Prho1x*Prho1y*Power(Prho2x,2)*Prho2y - 4*Power(Enu1,2)*Prho1x*Power(Prho2y,2) + 
+        4*Power(Etau,2)*Prho1x*Power(Prho2y,2) - 4*Power(Mtau,2)*Prho1x*Power(Prho2y,2) - 
+        4*Power(Prho1x,3)*Power(Prho2y,2) + 4*Prho1x*Power(Prho1y,2)*Power(Prho2y,2) - 
+        4*Prho1x*Power(Prho1z,2)*Power(Prho2y,2) - 4*Power(Prho1y,2)*Prho2x*Power(Prho2y,2) - 
+        4*Power(Prho1z,2)*Prho2x*Power(Prho2y,2) + 4*Prho1x*Prho1y*Power(Prho2y,3) - 
+        4*Power(Enu2,2)*Prho1x*Prho1z*Prho2z + 4*Power(Etau,2)*Prho1x*Prho1z*Prho2z - 
+        4*Power(Mtau,2)*Prho1x*Prho1z*Prho2z + 4*Power(Enu1,2)*Prho1z*Prho2x*Prho2z - 
+        4*Power(Etau,2)*Prho1z*Prho2x*Prho2z + 4*Power(Mtau,2)*Prho1z*Prho2x*Prho2z + 
+        12*Power(Prho1x,2)*Prho1z*Prho2x*Prho2z - 4*Power(Prho1y,2)*Prho1z*Prho2x*Prho2z - 
+        4*Power(Prho1z,3)*Prho2x*Prho2z + 4*Prho1x*Prho1z*Power(Prho2x,2)*Prho2z + 
+        16*Prho1x*Prho1y*Prho1z*Prho2y*Prho2z + 4*Prho1x*Prho1z*Power(Prho2y,2)*Prho2z - 
+        4*Power(Enu1,2)*Prho1x*Power(Prho2z,2) + 4*Power(Etau,2)*Prho1x*Power(Prho2z,2) - 
+        4*Power(Mtau,2)*Prho1x*Power(Prho2z,2) - 4*Power(Prho1x,3)*Power(Prho2z,2) - 
+        4*Prho1x*Power(Prho1y,2)*Power(Prho2z,2) + 4*Prho1x*Power(Prho1z,2)*Power(Prho2z,2) - 
+        4*Power(Prho1y,2)*Prho2x*Power(Prho2z,2) - 4*Power(Prho1z,2)*Prho2x*Power(Prho2z,2) + 
+        4*Prho1x*Prho1y*Prho2y*Power(Prho2z,2) + 4*Prho1x*Prho1z*Power(Prho2z,3) - 
+        Sqrt(Power(-4*Power(Enu2,2)*Power(Prho1y,2)*Prho2x + 4*Power(Etau,2)*Power(Prho1y,2)*Prho2x - 
+            4*Power(Mtau,2)*Power(Prho1y,2)*Prho2x - 4*Power(Enu2,2)*Power(Prho1z,2)*Prho2x + 
+            4*Power(Etau,2)*Power(Prho1z,2)*Prho2x - 4*Power(Mtau,2)*Power(Prho1z,2)*Prho2x + 
+            8*Prho1x*Power(Prho1y,2)*Power(Prho2x,2) + 8*Prho1x*Power(Prho1z,2)*Power(Prho2x,2) + 
+            4*Power(Prho1y,2)*Power(Prho2x,3) + 4*Power(Prho1z,2)*Power(Prho2x,3) + 
+            4*Power(Enu2,2)*Prho1x*Prho1y*Prho2y - 4*Power(Etau,2)*Prho1x*Prho1y*Prho2y + 
+            4*Power(Mtau,2)*Prho1x*Prho1y*Prho2y - 4*Power(Enu1,2)*Prho1y*Prho2x*Prho2y + 
+            4*Power(Etau,2)*Prho1y*Prho2x*Prho2y - 4*Power(Mtau,2)*Prho1y*Prho2x*Prho2y - 
+            12*Power(Prho1x,2)*Prho1y*Prho2x*Prho2y + 4*Power(Prho1y,3)*Prho2x*Prho2y + 
+            4*Prho1y*Power(Prho1z,2)*Prho2x*Prho2y - 4*Prho1x*Prho1y*Power(Prho2x,2)*Prho2y + 
+            4*Power(Enu1,2)*Prho1x*Power(Prho2y,2) - 4*Power(Etau,2)*Prho1x*Power(Prho2y,2) + 
+            4*Power(Mtau,2)*Prho1x*Power(Prho2y,2) + 4*Power(Prho1x,3)*Power(Prho2y,2) - 
+            4*Prho1x*Power(Prho1y,2)*Power(Prho2y,2) + 4*Prho1x*Power(Prho1z,2)*Power(Prho2y,2) + 
+            4*Power(Prho1y,2)*Prho2x*Power(Prho2y,2) + 4*Power(Prho1z,2)*Prho2x*Power(Prho2y,2) - 
+            4*Prho1x*Prho1y*Power(Prho2y,3) + 4*Power(Enu2,2)*Prho1x*Prho1z*Prho2z - 
+            4*Power(Etau,2)*Prho1x*Prho1z*Prho2z + 4*Power(Mtau,2)*Prho1x*Prho1z*Prho2z - 
+            4*Power(Enu1,2)*Prho1z*Prho2x*Prho2z + 4*Power(Etau,2)*Prho1z*Prho2x*Prho2z - 
+            4*Power(Mtau,2)*Prho1z*Prho2x*Prho2z - 12*Power(Prho1x,2)*Prho1z*Prho2x*Prho2z + 
+            4*Power(Prho1y,2)*Prho1z*Prho2x*Prho2z + 4*Power(Prho1z,3)*Prho2x*Prho2z - 
+            4*Prho1x*Prho1z*Power(Prho2x,2)*Prho2z - 16*Prho1x*Prho1y*Prho1z*Prho2y*Prho2z - 
+            4*Prho1x*Prho1z*Power(Prho2y,2)*Prho2z + 4*Power(Enu1,2)*Prho1x*Power(Prho2z,2) - 
+            4*Power(Etau,2)*Prho1x*Power(Prho2z,2) + 4*Power(Mtau,2)*Prho1x*Power(Prho2z,2) + 
+            4*Power(Prho1x,3)*Power(Prho2z,2) + 4*Prho1x*Power(Prho1y,2)*Power(Prho2z,2) - 
+            4*Prho1x*Power(Prho1z,2)*Power(Prho2z,2) + 4*Power(Prho1y,2)*Prho2x*Power(Prho2z,2) + 
+            4*Power(Prho1z,2)*Prho2x*Power(Prho2z,2) - 4*Prho1x*Prho1y*Prho2y*Power(Prho2z,2) - 
+            4*Prho1x*Prho1z*Power(Prho2z,3),2) - 
+          4*(4*Power(Prho1y,2)*Power(Prho2x,2) + 4*Power(Prho1z,2)*Power(Prho2x,2) - 
+             8*Prho1x*Prho1y*Prho2x*Prho2y + 4*Power(Prho1x,2)*Power(Prho2y,2) + 
+             4*Power(Prho1z,2)*Power(Prho2y,2) - 8*Prho1x*Prho1z*Prho2x*Prho2z - 
+             8*Prho1y*Prho1z*Prho2y*Prho2z + 4*Power(Prho1x,2)*Power(Prho2z,2) + 
+             4*Power(Prho1y,2)*Power(Prho2z,2))*
+           (Power(Enu2,4)*Power(Prho1y,2) - 2*Power(Enu2,2)*Power(Etau,2)*Power(Prho1y,2) + 
+             Power(Etau,4)*Power(Prho1y,2) + 2*Power(Enu2,2)*Power(Mtau,2)*Power(Prho1y,2) - 
+             2*Power(Etau,2)*Power(Mtau,2)*Power(Prho1y,2) + Power(Mtau,4)*Power(Prho1y,2) + 
+             Power(Enu2,4)*Power(Prho1z,2) - 2*Power(Enu2,2)*Power(Etau,2)*Power(Prho1z,2) + 
+             Power(Etau,4)*Power(Prho1z,2) + 2*Power(Enu2,2)*Power(Mtau,2)*Power(Prho1z,2) - 
+             2*Power(Etau,2)*Power(Mtau,2)*Power(Prho1z,2) + Power(Mtau,4)*Power(Prho1z,2) - 
+             4*Power(Enu2,2)*Prho1x*Power(Prho1y,2)*Prho2x + 
+             4*Power(Etau,2)*Prho1x*Power(Prho1y,2)*Prho2x - 
+             4*Power(Mtau,2)*Prho1x*Power(Prho1y,2)*Prho2x - 
+             4*Power(Enu2,2)*Prho1x*Power(Prho1z,2)*Prho2x + 
+             4*Power(Etau,2)*Prho1x*Power(Prho1z,2)*Prho2x - 
+             4*Power(Mtau,2)*Prho1x*Power(Prho1z,2)*Prho2x - 
+             2*Power(Enu2,2)*Power(Prho1y,2)*Power(Prho2x,2) + 
+             2*Power(Etau,2)*Power(Prho1y,2)*Power(Prho2x,2) - 
+             2*Power(Mtau,2)*Power(Prho1y,2)*Power(Prho2x,2) + 
+             4*Power(Prho1x,2)*Power(Prho1y,2)*Power(Prho2x,2) - 
+             2*Power(Enu2,2)*Power(Prho1z,2)*Power(Prho2x,2) + 
+             2*Power(Etau,2)*Power(Prho1z,2)*Power(Prho2x,2) - 
+             2*Power(Mtau,2)*Power(Prho1z,2)*Power(Prho2x,2) + 
+             4*Power(Prho1x,2)*Power(Prho1z,2)*Power(Prho2x,2) + 
+             4*Prho1x*Power(Prho1y,2)*Power(Prho2x,3) + 4*Prho1x*Power(Prho1z,2)*Power(Prho2x,3) + 
+             Power(Prho1y,2)*Power(Prho2x,4) + Power(Prho1z,2)*Power(Prho2x,4) + 
+             2*Power(Enu1,2)*Power(Enu2,2)*Prho1y*Prho2y - 
+             2*Power(Enu1,2)*Power(Etau,2)*Prho1y*Prho2y - 
+             2*Power(Enu2,2)*Power(Etau,2)*Prho1y*Prho2y + 2*Power(Etau,4)*Prho1y*Prho2y + 
+             2*Power(Enu1,2)*Power(Mtau,2)*Prho1y*Prho2y + 
+             2*Power(Enu2,2)*Power(Mtau,2)*Prho1y*Prho2y - 
+             4*Power(Etau,2)*Power(Mtau,2)*Prho1y*Prho2y + 2*Power(Mtau,4)*Prho1y*Prho2y + 
+             2*Power(Enu2,2)*Power(Prho1x,2)*Prho1y*Prho2y - 
+             2*Power(Etau,2)*Power(Prho1x,2)*Prho1y*Prho2y + 
+             2*Power(Mtau,2)*Power(Prho1x,2)*Prho1y*Prho2y - 2*Power(Enu2,2)*Power(Prho1y,3)*Prho2y + 
+             2*Power(Etau,2)*Power(Prho1y,3)*Prho2y - 2*Power(Mtau,2)*Power(Prho1y,3)*Prho2y - 
+             2*Power(Enu2,2)*Prho1y*Power(Prho1z,2)*Prho2y + 
+             2*Power(Etau,2)*Prho1y*Power(Prho1z,2)*Prho2y - 
+             2*Power(Mtau,2)*Prho1y*Power(Prho1z,2)*Prho2y - 
+             4*Power(Enu1,2)*Prho1x*Prho1y*Prho2x*Prho2y + 
+             4*Power(Etau,2)*Prho1x*Prho1y*Prho2x*Prho2y - 
+             4*Power(Mtau,2)*Prho1x*Prho1y*Prho2x*Prho2y - 4*Power(Prho1x,3)*Prho1y*Prho2x*Prho2y + 
+             4*Prho1x*Power(Prho1y,3)*Prho2x*Prho2y + 4*Prho1x*Prho1y*Power(Prho1z,2)*Prho2x*Prho2y - 
+             2*Power(Enu1,2)*Prho1y*Power(Prho2x,2)*Prho2y + 
+             2*Power(Etau,2)*Prho1y*Power(Prho2x,2)*Prho2y - 
+             2*Power(Mtau,2)*Prho1y*Power(Prho2x,2)*Prho2y - 
+             2*Power(Prho1x,2)*Prho1y*Power(Prho2x,2)*Prho2y + 
+             2*Power(Prho1y,3)*Power(Prho2x,2)*Prho2y + 
+             2*Prho1y*Power(Prho1z,2)*Power(Prho2x,2)*Prho2y + Power(Enu1,4)*Power(Prho2y,2) - 
+             2*Power(Enu1,2)*Power(Etau,2)*Power(Prho2y,2) + Power(Etau,4)*Power(Prho2y,2) + 
+             2*Power(Enu1,2)*Power(Mtau,2)*Power(Prho2y,2) - 
+             2*Power(Etau,2)*Power(Mtau,2)*Power(Prho2y,2) + Power(Mtau,4)*Power(Prho2y,2) + 
+             2*Power(Enu1,2)*Power(Prho1x,2)*Power(Prho2y,2) - 
+             2*Power(Etau,2)*Power(Prho1x,2)*Power(Prho2y,2) + 
+             2*Power(Mtau,2)*Power(Prho1x,2)*Power(Prho2y,2) + Power(Prho1x,4)*Power(Prho2y,2) - 
+             2*Power(Enu1,2)*Power(Prho1y,2)*Power(Prho2y,2) - 
+             2*Power(Enu2,2)*Power(Prho1y,2)*Power(Prho2y,2) + 
+             4*Power(Etau,2)*Power(Prho1y,2)*Power(Prho2y,2) - 
+             4*Power(Mtau,2)*Power(Prho1y,2)*Power(Prho2y,2) - 
+             2*Power(Prho1x,2)*Power(Prho1y,2)*Power(Prho2y,2) + Power(Prho1y,4)*Power(Prho2y,2) - 
+             2*Power(Enu1,2)*Power(Prho1z,2)*Power(Prho2y,2) - 
+             2*Power(Enu2,2)*Power(Prho1z,2)*Power(Prho2y,2) + 
+             2*Power(Prho1x,2)*Power(Prho1z,2)*Power(Prho2y,2) + 
+             2*Power(Prho1y,2)*Power(Prho1z,2)*Power(Prho2y,2) + Power(Prho1z,4)*Power(Prho2y,2) + 
+             4*Prho1x*Power(Prho1y,2)*Prho2x*Power(Prho2y,2) + 
+             4*Prho1x*Power(Prho1z,2)*Prho2x*Power(Prho2y,2) + 
+             2*Power(Prho1y,2)*Power(Prho2x,2)*Power(Prho2y,2) + 
+             2*Power(Prho1z,2)*Power(Prho2x,2)*Power(Prho2y,2) - 
+             2*Power(Enu1,2)*Prho1y*Power(Prho2y,3) + 2*Power(Etau,2)*Prho1y*Power(Prho2y,3) - 
+             2*Power(Mtau,2)*Prho1y*Power(Prho2y,3) - 2*Power(Prho1x,2)*Prho1y*Power(Prho2y,3) + 
+             2*Power(Prho1y,3)*Power(Prho2y,3) + 2*Prho1y*Power(Prho1z,2)*Power(Prho2y,3) + 
+             Power(Prho1y,2)*Power(Prho2y,4) + Power(Prho1z,2)*Power(Prho2y,4) + 
+             2*Power(Enu1,2)*Power(Enu2,2)*Prho1z*Prho2z - 
+             2*Power(Enu1,2)*Power(Etau,2)*Prho1z*Prho2z - 
+             2*Power(Enu2,2)*Power(Etau,2)*Prho1z*Prho2z + 2*Power(Etau,4)*Prho1z*Prho2z + 
+             2*Power(Enu1,2)*Power(Mtau,2)*Prho1z*Prho2z + 
+             2*Power(Enu2,2)*Power(Mtau,2)*Prho1z*Prho2z - 
+             4*Power(Etau,2)*Power(Mtau,2)*Prho1z*Prho2z + 2*Power(Mtau,4)*Prho1z*Prho2z + 
+             2*Power(Enu2,2)*Power(Prho1x,2)*Prho1z*Prho2z - 
+             2*Power(Etau,2)*Power(Prho1x,2)*Prho1z*Prho2z + 
+             2*Power(Mtau,2)*Power(Prho1x,2)*Prho1z*Prho2z - 
+             2*Power(Enu2,2)*Power(Prho1y,2)*Prho1z*Prho2z + 
+             2*Power(Etau,2)*Power(Prho1y,2)*Prho1z*Prho2z - 
+             2*Power(Mtau,2)*Power(Prho1y,2)*Prho1z*Prho2z - 2*Power(Enu2,2)*Power(Prho1z,3)*Prho2z + 
+             2*Power(Etau,2)*Power(Prho1z,3)*Prho2z - 2*Power(Mtau,2)*Power(Prho1z,3)*Prho2z - 
+             4*Power(Enu1,2)*Prho1x*Prho1z*Prho2x*Prho2z + 
+             4*Power(Etau,2)*Prho1x*Prho1z*Prho2x*Prho2z - 
+             4*Power(Mtau,2)*Prho1x*Prho1z*Prho2x*Prho2z - 4*Power(Prho1x,3)*Prho1z*Prho2x*Prho2z + 
+             4*Prho1x*Power(Prho1y,2)*Prho1z*Prho2x*Prho2z + 4*Prho1x*Power(Prho1z,3)*Prho2x*Prho2z - 
+             2*Power(Enu1,2)*Prho1z*Power(Prho2x,2)*Prho2z + 
+             2*Power(Etau,2)*Prho1z*Power(Prho2x,2)*Prho2z - 
+             2*Power(Mtau,2)*Prho1z*Power(Prho2x,2)*Prho2z - 
+             2*Power(Prho1x,2)*Prho1z*Power(Prho2x,2)*Prho2z + 
+             2*Power(Prho1y,2)*Prho1z*Power(Prho2x,2)*Prho2z + 
+             2*Power(Prho1z,3)*Power(Prho2x,2)*Prho2z + 8*Power(Etau,2)*Prho1y*Prho1z*Prho2y*Prho2z - 
+             8*Power(Mtau,2)*Prho1y*Prho1z*Prho2y*Prho2z - 
+             8*Power(Prho1x,2)*Prho1y*Prho1z*Prho2y*Prho2z - 
+             2*Power(Enu1,2)*Prho1z*Power(Prho2y,2)*Prho2z + 
+             2*Power(Etau,2)*Prho1z*Power(Prho2y,2)*Prho2z - 
+             2*Power(Mtau,2)*Prho1z*Power(Prho2y,2)*Prho2z - 
+             2*Power(Prho1x,2)*Prho1z*Power(Prho2y,2)*Prho2z + 
+             2*Power(Prho1y,2)*Prho1z*Power(Prho2y,2)*Prho2z + 
+             2*Power(Prho1z,3)*Power(Prho2y,2)*Prho2z + Power(Enu1,4)*Power(Prho2z,2) - 
+             2*Power(Enu1,2)*Power(Etau,2)*Power(Prho2z,2) + Power(Etau,4)*Power(Prho2z,2) + 
+             2*Power(Enu1,2)*Power(Mtau,2)*Power(Prho2z,2) - 
+             2*Power(Etau,2)*Power(Mtau,2)*Power(Prho2z,2) + Power(Mtau,4)*Power(Prho2z,2) + 
+             2*Power(Enu1,2)*Power(Prho1x,2)*Power(Prho2z,2) - 
+             2*Power(Etau,2)*Power(Prho1x,2)*Power(Prho2z,2) + 
+             2*Power(Mtau,2)*Power(Prho1x,2)*Power(Prho2z,2) + Power(Prho1x,4)*Power(Prho2z,2) - 
+             2*Power(Enu1,2)*Power(Prho1y,2)*Power(Prho2z,2) - 
+             2*Power(Enu2,2)*Power(Prho1y,2)*Power(Prho2z,2) + 
+             2*Power(Prho1x,2)*Power(Prho1y,2)*Power(Prho2z,2) + Power(Prho1y,4)*Power(Prho2z,2) - 
+             2*Power(Enu1,2)*Power(Prho1z,2)*Power(Prho2z,2) - 
+             2*Power(Enu2,2)*Power(Prho1z,2)*Power(Prho2z,2) + 
+             4*Power(Etau,2)*Power(Prho1z,2)*Power(Prho2z,2) - 
+             4*Power(Mtau,2)*Power(Prho1z,2)*Power(Prho2z,2) - 
+             2*Power(Prho1x,2)*Power(Prho1z,2)*Power(Prho2z,2) + 
+             2*Power(Prho1y,2)*Power(Prho1z,2)*Power(Prho2z,2) + Power(Prho1z,4)*Power(Prho2z,2) + 
+             4*Prho1x*Power(Prho1y,2)*Prho2x*Power(Prho2z,2) + 
+             4*Prho1x*Power(Prho1z,2)*Prho2x*Power(Prho2z,2) + 
+             2*Power(Prho1y,2)*Power(Prho2x,2)*Power(Prho2z,2) + 
+             2*Power(Prho1z,2)*Power(Prho2x,2)*Power(Prho2z,2) - 
+             2*Power(Enu1,2)*Prho1y*Prho2y*Power(Prho2z,2) + 
+             2*Power(Etau,2)*Prho1y*Prho2y*Power(Prho2z,2) - 
+             2*Power(Mtau,2)*Prho1y*Prho2y*Power(Prho2z,2) - 
+             2*Power(Prho1x,2)*Prho1y*Prho2y*Power(Prho2z,2) + 
+             2*Power(Prho1y,3)*Prho2y*Power(Prho2z,2) + 
+             2*Prho1y*Power(Prho1z,2)*Prho2y*Power(Prho2z,2) + 
+             2*Power(Prho1y,2)*Power(Prho2y,2)*Power(Prho2z,2) + 
+             2*Power(Prho1z,2)*Power(Prho2y,2)*Power(Prho2z,2) - 
+             2*Power(Enu1,2)*Prho1z*Power(Prho2z,3) + 2*Power(Etau,2)*Prho1z*Power(Prho2z,3) - 
+             2*Power(Mtau,2)*Prho1z*Power(Prho2z,3) - 2*Power(Prho1x,2)*Prho1z*Power(Prho2z,3) + 
+             2*Power(Prho1y,2)*Prho1z*Power(Prho2z,3) + 2*Power(Prho1z,3)*Power(Prho2z,3) + 
+             Power(Prho1y,2)*Power(Prho2z,4) + Power(Prho1z,2)*Power(Prho2z,4))))/
+      (2.*(4*Power(Prho1y,2)*Power(Prho2x,2) + 4*Power(Prho1z,2)*Power(Prho2x,2) - 
+          8*Prho1x*Prho1y*Prho2x*Prho2y + 4*Power(Prho1x,2)*Power(Prho2y,2) + 
+          4*Power(Prho1z,2)*Power(Prho2y,2) - 8*Prho1x*Prho1z*Prho2x*Prho2z - 
+          8*Prho1y*Prho1z*Prho2y*Prho2z + 4*Power(Prho1x,2)*Power(Prho2z,2) + 
+          4*Power(Prho1y,2)*Power(Prho2z,2)));
+
+    Double_t Py = (-(Power(Enu2,2)*Prho1z) + Power(Etau,2)*Prho1z - Power(Mtau,2)*Prho1z + 
+        2*Prho1x*Prho1z*Prho2x + Prho1z*Power(Prho2x,2) + 2*Prho1y*Prho1z*Prho2y + 
+        Prho1z*Power(Prho2y,2) - Power(Enu1,2)*Prho2z + Power(Etau,2)*Prho2z - Power(Mtau,2)*Prho2z - 
+        Power(Prho1x,2)*Prho2z - Power(Prho1y,2)*Prho2z + Power(Prho1z,2)*Prho2z + 
+        Prho1z*Power(Prho2z,2) + (Prho1z*Prho2x*
+           (4*Power(Enu2,2)*Power(Prho1y,2)*Prho2x - 4*Power(Etau,2)*Power(Prho1y,2)*Prho2x + 
+             4*Power(Mtau,2)*Power(Prho1y,2)*Prho2x + 4*Power(Enu2,2)*Power(Prho1z,2)*Prho2x - 
+             4*Power(Etau,2)*Power(Prho1z,2)*Prho2x + 4*Power(Mtau,2)*Power(Prho1z,2)*Prho2x - 
+             8*Prho1x*Power(Prho1y,2)*Power(Prho2x,2) - 8*Prho1x*Power(Prho1z,2)*Power(Prho2x,2) - 
+             4*Power(Prho1y,2)*Power(Prho2x,3) - 4*Power(Prho1z,2)*Power(Prho2x,3) - 
+             4*Power(Enu2,2)*Prho1x*Prho1y*Prho2y + 4*Power(Etau,2)*Prho1x*Prho1y*Prho2y - 
+             4*Power(Mtau,2)*Prho1x*Prho1y*Prho2y + 4*Power(Enu1,2)*Prho1y*Prho2x*Prho2y - 
+             4*Power(Etau,2)*Prho1y*Prho2x*Prho2y + 4*Power(Mtau,2)*Prho1y*Prho2x*Prho2y + 
+             12*Power(Prho1x,2)*Prho1y*Prho2x*Prho2y - 4*Power(Prho1y,3)*Prho2x*Prho2y - 
+             4*Prho1y*Power(Prho1z,2)*Prho2x*Prho2y + 4*Prho1x*Prho1y*Power(Prho2x,2)*Prho2y - 
+             4*Power(Enu1,2)*Prho1x*Power(Prho2y,2) + 4*Power(Etau,2)*Prho1x*Power(Prho2y,2) - 
+             4*Power(Mtau,2)*Prho1x*Power(Prho2y,2) - 4*Power(Prho1x,3)*Power(Prho2y,2) + 
+             4*Prho1x*Power(Prho1y,2)*Power(Prho2y,2) - 4*Prho1x*Power(Prho1z,2)*Power(Prho2y,2) - 
+             4*Power(Prho1y,2)*Prho2x*Power(Prho2y,2) - 4*Power(Prho1z,2)*Prho2x*Power(Prho2y,2) + 
+             4*Prho1x*Prho1y*Power(Prho2y,3) - 4*Power(Enu2,2)*Prho1x*Prho1z*Prho2z + 
+             4*Power(Etau,2)*Prho1x*Prho1z*Prho2z - 4*Power(Mtau,2)*Prho1x*Prho1z*Prho2z + 
+             4*Power(Enu1,2)*Prho1z*Prho2x*Prho2z - 4*Power(Etau,2)*Prho1z*Prho2x*Prho2z + 
+             4*Power(Mtau,2)*Prho1z*Prho2x*Prho2z + 12*Power(Prho1x,2)*Prho1z*Prho2x*Prho2z - 
+             4*Power(Prho1y,2)*Prho1z*Prho2x*Prho2z - 4*Power(Prho1z,3)*Prho2x*Prho2z + 
+             4*Prho1x*Prho1z*Power(Prho2x,2)*Prho2z + 16*Prho1x*Prho1y*Prho1z*Prho2y*Prho2z + 
+             4*Prho1x*Prho1z*Power(Prho2y,2)*Prho2z - 4*Power(Enu1,2)*Prho1x*Power(Prho2z,2) + 
+             4*Power(Etau,2)*Prho1x*Power(Prho2z,2) - 4*Power(Mtau,2)*Prho1x*Power(Prho2z,2) - 
+             4*Power(Prho1x,3)*Power(Prho2z,2) - 4*Prho1x*Power(Prho1y,2)*Power(Prho2z,2) + 
+             4*Prho1x*Power(Prho1z,2)*Power(Prho2z,2) - 4*Power(Prho1y,2)*Prho2x*Power(Prho2z,2) - 
+             4*Power(Prho1z,2)*Prho2x*Power(Prho2z,2) + 4*Prho1x*Prho1y*Prho2y*Power(Prho2z,2) + 
+             4*Prho1x*Prho1z*Power(Prho2z,3) - 
+             Sqrt(Power(-4*Power(Enu2,2)*Power(Prho1y,2)*Prho2x + 
+                 4*Power(Etau,2)*Power(Prho1y,2)*Prho2x - 4*Power(Mtau,2)*Power(Prho1y,2)*Prho2x - 
+                 4*Power(Enu2,2)*Power(Prho1z,2)*Prho2x + 4*Power(Etau,2)*Power(Prho1z,2)*Prho2x - 
+                 4*Power(Mtau,2)*Power(Prho1z,2)*Prho2x + 8*Prho1x*Power(Prho1y,2)*Power(Prho2x,2) + 
+                 8*Prho1x*Power(Prho1z,2)*Power(Prho2x,2) + 4*Power(Prho1y,2)*Power(Prho2x,3) + 
+                 4*Power(Prho1z,2)*Power(Prho2x,3) + 4*Power(Enu2,2)*Prho1x*Prho1y*Prho2y - 
+                 4*Power(Etau,2)*Prho1x*Prho1y*Prho2y + 4*Power(Mtau,2)*Prho1x*Prho1y*Prho2y - 
+                 4*Power(Enu1,2)*Prho1y*Prho2x*Prho2y + 4*Power(Etau,2)*Prho1y*Prho2x*Prho2y - 
+                 4*Power(Mtau,2)*Prho1y*Prho2x*Prho2y - 12*Power(Prho1x,2)*Prho1y*Prho2x*Prho2y + 
+                 4*Power(Prho1y,3)*Prho2x*Prho2y + 4*Prho1y*Power(Prho1z,2)*Prho2x*Prho2y - 
+                 4*Prho1x*Prho1y*Power(Prho2x,2)*Prho2y + 4*Power(Enu1,2)*Prho1x*Power(Prho2y,2) - 
+                 4*Power(Etau,2)*Prho1x*Power(Prho2y,2) + 4*Power(Mtau,2)*Prho1x*Power(Prho2y,2) + 
+                 4*Power(Prho1x,3)*Power(Prho2y,2) - 4*Prho1x*Power(Prho1y,2)*Power(Prho2y,2) + 
+                 4*Prho1x*Power(Prho1z,2)*Power(Prho2y,2) + 4*Power(Prho1y,2)*Prho2x*Power(Prho2y,2) + 
+                 4*Power(Prho1z,2)*Prho2x*Power(Prho2y,2) - 4*Prho1x*Prho1y*Power(Prho2y,3) + 
+                 4*Power(Enu2,2)*Prho1x*Prho1z*Prho2z - 4*Power(Etau,2)*Prho1x*Prho1z*Prho2z + 
+                 4*Power(Mtau,2)*Prho1x*Prho1z*Prho2z - 4*Power(Enu1,2)*Prho1z*Prho2x*Prho2z + 
+                 4*Power(Etau,2)*Prho1z*Prho2x*Prho2z - 4*Power(Mtau,2)*Prho1z*Prho2x*Prho2z - 
+                 12*Power(Prho1x,2)*Prho1z*Prho2x*Prho2z + 4*Power(Prho1y,2)*Prho1z*Prho2x*Prho2z + 
+                 4*Power(Prho1z,3)*Prho2x*Prho2z - 4*Prho1x*Prho1z*Power(Prho2x,2)*Prho2z - 
+                 16*Prho1x*Prho1y*Prho1z*Prho2y*Prho2z - 4*Prho1x*Prho1z*Power(Prho2y,2)*Prho2z + 
+                 4*Power(Enu1,2)*Prho1x*Power(Prho2z,2) - 4*Power(Etau,2)*Prho1x*Power(Prho2z,2) + 
+                 4*Power(Mtau,2)*Prho1x*Power(Prho2z,2) + 4*Power(Prho1x,3)*Power(Prho2z,2) + 
+                 4*Prho1x*Power(Prho1y,2)*Power(Prho2z,2) - 4*Prho1x*Power(Prho1z,2)*Power(Prho2z,2) + 
+                 4*Power(Prho1y,2)*Prho2x*Power(Prho2z,2) + 4*Power(Prho1z,2)*Prho2x*Power(Prho2z,2) - 
+                 4*Prho1x*Prho1y*Prho2y*Power(Prho2z,2) - 4*Prho1x*Prho1z*Power(Prho2z,3),2) - 
+               4*(4*Power(Prho1y,2)*Power(Prho2x,2) + 4*Power(Prho1z,2)*Power(Prho2x,2) - 
+                  8*Prho1x*Prho1y*Prho2x*Prho2y + 4*Power(Prho1x,2)*Power(Prho2y,2) + 
+                  4*Power(Prho1z,2)*Power(Prho2y,2) - 8*Prho1x*Prho1z*Prho2x*Prho2z - 
+                  8*Prho1y*Prho1z*Prho2y*Prho2z + 4*Power(Prho1x,2)*Power(Prho2z,2) + 
+                  4*Power(Prho1y,2)*Power(Prho2z,2))*
+                (Power(Enu2,4)*Power(Prho1y,2) - 2*Power(Enu2,2)*Power(Etau,2)*Power(Prho1y,2) + 
+                  Power(Etau,4)*Power(Prho1y,2) + 2*Power(Enu2,2)*Power(Mtau,2)*Power(Prho1y,2) - 
+                  2*Power(Etau,2)*Power(Mtau,2)*Power(Prho1y,2) + Power(Mtau,4)*Power(Prho1y,2) + 
+                  Power(Enu2,4)*Power(Prho1z,2) - 2*Power(Enu2,2)*Power(Etau,2)*Power(Prho1z,2) + 
+                  Power(Etau,4)*Power(Prho1z,2) + 2*Power(Enu2,2)*Power(Mtau,2)*Power(Prho1z,2) - 
+                  2*Power(Etau,2)*Power(Mtau,2)*Power(Prho1z,2) + Power(Mtau,4)*Power(Prho1z,2) - 
+                  4*Power(Enu2,2)*Prho1x*Power(Prho1y,2)*Prho2x + 
+                  4*Power(Etau,2)*Prho1x*Power(Prho1y,2)*Prho2x - 
+                  4*Power(Mtau,2)*Prho1x*Power(Prho1y,2)*Prho2x - 
+                  4*Power(Enu2,2)*Prho1x*Power(Prho1z,2)*Prho2x + 
+                  4*Power(Etau,2)*Prho1x*Power(Prho1z,2)*Prho2x - 
+                  4*Power(Mtau,2)*Prho1x*Power(Prho1z,2)*Prho2x - 
+                  2*Power(Enu2,2)*Power(Prho1y,2)*Power(Prho2x,2) + 
+                  2*Power(Etau,2)*Power(Prho1y,2)*Power(Prho2x,2) - 
+                  2*Power(Mtau,2)*Power(Prho1y,2)*Power(Prho2x,2) + 
+                  4*Power(Prho1x,2)*Power(Prho1y,2)*Power(Prho2x,2) - 
+                  2*Power(Enu2,2)*Power(Prho1z,2)*Power(Prho2x,2) + 
+                  2*Power(Etau,2)*Power(Prho1z,2)*Power(Prho2x,2) - 
+                  2*Power(Mtau,2)*Power(Prho1z,2)*Power(Prho2x,2) + 
+                  4*Power(Prho1x,2)*Power(Prho1z,2)*Power(Prho2x,2) + 
+                  4*Prho1x*Power(Prho1y,2)*Power(Prho2x,3) + 
+                  4*Prho1x*Power(Prho1z,2)*Power(Prho2x,3) + Power(Prho1y,2)*Power(Prho2x,4) + 
+                  Power(Prho1z,2)*Power(Prho2x,4) + 2*Power(Enu1,2)*Power(Enu2,2)*Prho1y*Prho2y - 
+                  2*Power(Enu1,2)*Power(Etau,2)*Prho1y*Prho2y - 
+                  2*Power(Enu2,2)*Power(Etau,2)*Prho1y*Prho2y + 2*Power(Etau,4)*Prho1y*Prho2y + 
+                  2*Power(Enu1,2)*Power(Mtau,2)*Prho1y*Prho2y + 
+                  2*Power(Enu2,2)*Power(Mtau,2)*Prho1y*Prho2y - 
+                  4*Power(Etau,2)*Power(Mtau,2)*Prho1y*Prho2y + 2*Power(Mtau,4)*Prho1y*Prho2y + 
+                  2*Power(Enu2,2)*Power(Prho1x,2)*Prho1y*Prho2y - 
+                  2*Power(Etau,2)*Power(Prho1x,2)*Prho1y*Prho2y + 
+                  2*Power(Mtau,2)*Power(Prho1x,2)*Prho1y*Prho2y - 
+                  2*Power(Enu2,2)*Power(Prho1y,3)*Prho2y + 2*Power(Etau,2)*Power(Prho1y,3)*Prho2y - 
+                  2*Power(Mtau,2)*Power(Prho1y,3)*Prho2y - 
+                  2*Power(Enu2,2)*Prho1y*Power(Prho1z,2)*Prho2y + 
+                  2*Power(Etau,2)*Prho1y*Power(Prho1z,2)*Prho2y - 
+                  2*Power(Mtau,2)*Prho1y*Power(Prho1z,2)*Prho2y - 
+                  4*Power(Enu1,2)*Prho1x*Prho1y*Prho2x*Prho2y + 
+                  4*Power(Etau,2)*Prho1x*Prho1y*Prho2x*Prho2y - 
+                  4*Power(Mtau,2)*Prho1x*Prho1y*Prho2x*Prho2y - 
+                  4*Power(Prho1x,3)*Prho1y*Prho2x*Prho2y + 4*Prho1x*Power(Prho1y,3)*Prho2x*Prho2y + 
+                  4*Prho1x*Prho1y*Power(Prho1z,2)*Prho2x*Prho2y - 
+                  2*Power(Enu1,2)*Prho1y*Power(Prho2x,2)*Prho2y + 
+                  2*Power(Etau,2)*Prho1y*Power(Prho2x,2)*Prho2y - 
+                  2*Power(Mtau,2)*Prho1y*Power(Prho2x,2)*Prho2y - 
+                  2*Power(Prho1x,2)*Prho1y*Power(Prho2x,2)*Prho2y + 
+                  2*Power(Prho1y,3)*Power(Prho2x,2)*Prho2y + 
+                  2*Prho1y*Power(Prho1z,2)*Power(Prho2x,2)*Prho2y + Power(Enu1,4)*Power(Prho2y,2) - 
+                  2*Power(Enu1,2)*Power(Etau,2)*Power(Prho2y,2) + Power(Etau,4)*Power(Prho2y,2) + 
+                  2*Power(Enu1,2)*Power(Mtau,2)*Power(Prho2y,2) - 
+                  2*Power(Etau,2)*Power(Mtau,2)*Power(Prho2y,2) + Power(Mtau,4)*Power(Prho2y,2) + 
+                  2*Power(Enu1,2)*Power(Prho1x,2)*Power(Prho2y,2) - 
+                  2*Power(Etau,2)*Power(Prho1x,2)*Power(Prho2y,2) + 
+                  2*Power(Mtau,2)*Power(Prho1x,2)*Power(Prho2y,2) + Power(Prho1x,4)*Power(Prho2y,2) - 
+                  2*Power(Enu1,2)*Power(Prho1y,2)*Power(Prho2y,2) - 
+                  2*Power(Enu2,2)*Power(Prho1y,2)*Power(Prho2y,2) + 
+                  4*Power(Etau,2)*Power(Prho1y,2)*Power(Prho2y,2) - 
+                  4*Power(Mtau,2)*Power(Prho1y,2)*Power(Prho2y,2) - 
+                  2*Power(Prho1x,2)*Power(Prho1y,2)*Power(Prho2y,2) + 
+                  Power(Prho1y,4)*Power(Prho2y,2) - 2*Power(Enu1,2)*Power(Prho1z,2)*Power(Prho2y,2) - 
+                  2*Power(Enu2,2)*Power(Prho1z,2)*Power(Prho2y,2) + 
+                  2*Power(Prho1x,2)*Power(Prho1z,2)*Power(Prho2y,2) + 
+                  2*Power(Prho1y,2)*Power(Prho1z,2)*Power(Prho2y,2) + 
+                  Power(Prho1z,4)*Power(Prho2y,2) + 4*Prho1x*Power(Prho1y,2)*Prho2x*Power(Prho2y,2) + 
+                  4*Prho1x*Power(Prho1z,2)*Prho2x*Power(Prho2y,2) + 
+                  2*Power(Prho1y,2)*Power(Prho2x,2)*Power(Prho2y,2) + 
+                  2*Power(Prho1z,2)*Power(Prho2x,2)*Power(Prho2y,2) - 
+                  2*Power(Enu1,2)*Prho1y*Power(Prho2y,3) + 2*Power(Etau,2)*Prho1y*Power(Prho2y,3) - 
+                  2*Power(Mtau,2)*Prho1y*Power(Prho2y,3) - 2*Power(Prho1x,2)*Prho1y*Power(Prho2y,3) + 
+                  2*Power(Prho1y,3)*Power(Prho2y,3) + 2*Prho1y*Power(Prho1z,2)*Power(Prho2y,3) + 
+                  Power(Prho1y,2)*Power(Prho2y,4) + Power(Prho1z,2)*Power(Prho2y,4) + 
+                  2*Power(Enu1,2)*Power(Enu2,2)*Prho1z*Prho2z - 
+                  2*Power(Enu1,2)*Power(Etau,2)*Prho1z*Prho2z - 
+                  2*Power(Enu2,2)*Power(Etau,2)*Prho1z*Prho2z + 2*Power(Etau,4)*Prho1z*Prho2z + 
+                  2*Power(Enu1,2)*Power(Mtau,2)*Prho1z*Prho2z + 
+                  2*Power(Enu2,2)*Power(Mtau,2)*Prho1z*Prho2z - 
+                  4*Power(Etau,2)*Power(Mtau,2)*Prho1z*Prho2z + 2*Power(Mtau,4)*Prho1z*Prho2z + 
+                  2*Power(Enu2,2)*Power(Prho1x,2)*Prho1z*Prho2z - 
+                  2*Power(Etau,2)*Power(Prho1x,2)*Prho1z*Prho2z + 
+                  2*Power(Mtau,2)*Power(Prho1x,2)*Prho1z*Prho2z - 
+                  2*Power(Enu2,2)*Power(Prho1y,2)*Prho1z*Prho2z + 
+                  2*Power(Etau,2)*Power(Prho1y,2)*Prho1z*Prho2z - 
+                  2*Power(Mtau,2)*Power(Prho1y,2)*Prho1z*Prho2z - 
+                  2*Power(Enu2,2)*Power(Prho1z,3)*Prho2z + 2*Power(Etau,2)*Power(Prho1z,3)*Prho2z - 
+                  2*Power(Mtau,2)*Power(Prho1z,3)*Prho2z - 
+                  4*Power(Enu1,2)*Prho1x*Prho1z*Prho2x*Prho2z + 
+                  4*Power(Etau,2)*Prho1x*Prho1z*Prho2x*Prho2z - 
+                  4*Power(Mtau,2)*Prho1x*Prho1z*Prho2x*Prho2z - 
+                  4*Power(Prho1x,3)*Prho1z*Prho2x*Prho2z + 
+                  4*Prho1x*Power(Prho1y,2)*Prho1z*Prho2x*Prho2z + 
+                  4*Prho1x*Power(Prho1z,3)*Prho2x*Prho2z - 
+                  2*Power(Enu1,2)*Prho1z*Power(Prho2x,2)*Prho2z + 
+                  2*Power(Etau,2)*Prho1z*Power(Prho2x,2)*Prho2z - 
+                  2*Power(Mtau,2)*Prho1z*Power(Prho2x,2)*Prho2z - 
+                  2*Power(Prho1x,2)*Prho1z*Power(Prho2x,2)*Prho2z + 
+                  2*Power(Prho1y,2)*Prho1z*Power(Prho2x,2)*Prho2z + 
+                  2*Power(Prho1z,3)*Power(Prho2x,2)*Prho2z + 
+                  8*Power(Etau,2)*Prho1y*Prho1z*Prho2y*Prho2z - 
+                  8*Power(Mtau,2)*Prho1y*Prho1z*Prho2y*Prho2z - 
+                  8*Power(Prho1x,2)*Prho1y*Prho1z*Prho2y*Prho2z - 
+                  2*Power(Enu1,2)*Prho1z*Power(Prho2y,2)*Prho2z + 
+                  2*Power(Etau,2)*Prho1z*Power(Prho2y,2)*Prho2z - 
+                  2*Power(Mtau,2)*Prho1z*Power(Prho2y,2)*Prho2z - 
+                  2*Power(Prho1x,2)*Prho1z*Power(Prho2y,2)*Prho2z + 
+                  2*Power(Prho1y,2)*Prho1z*Power(Prho2y,2)*Prho2z + 
+                  2*Power(Prho1z,3)*Power(Prho2y,2)*Prho2z + Power(Enu1,4)*Power(Prho2z,2) - 
+                  2*Power(Enu1,2)*Power(Etau,2)*Power(Prho2z,2) + Power(Etau,4)*Power(Prho2z,2) + 
+                  2*Power(Enu1,2)*Power(Mtau,2)*Power(Prho2z,2) - 
+                  2*Power(Etau,2)*Power(Mtau,2)*Power(Prho2z,2) + Power(Mtau,4)*Power(Prho2z,2) + 
+                  2*Power(Enu1,2)*Power(Prho1x,2)*Power(Prho2z,2) - 
+                  2*Power(Etau,2)*Power(Prho1x,2)*Power(Prho2z,2) + 
+                  2*Power(Mtau,2)*Power(Prho1x,2)*Power(Prho2z,2) + Power(Prho1x,4)*Power(Prho2z,2) - 
+                  2*Power(Enu1,2)*Power(Prho1y,2)*Power(Prho2z,2) - 
+                  2*Power(Enu2,2)*Power(Prho1y,2)*Power(Prho2z,2) + 
+                  2*Power(Prho1x,2)*Power(Prho1y,2)*Power(Prho2z,2) + 
+                  Power(Prho1y,4)*Power(Prho2z,2) - 2*Power(Enu1,2)*Power(Prho1z,2)*Power(Prho2z,2) - 
+                  2*Power(Enu2,2)*Power(Prho1z,2)*Power(Prho2z,2) + 
+                  4*Power(Etau,2)*Power(Prho1z,2)*Power(Prho2z,2) - 
+                  4*Power(Mtau,2)*Power(Prho1z,2)*Power(Prho2z,2) - 
+                  2*Power(Prho1x,2)*Power(Prho1z,2)*Power(Prho2z,2) + 
+                  2*Power(Prho1y,2)*Power(Prho1z,2)*Power(Prho2z,2) + 
+                  Power(Prho1z,4)*Power(Prho2z,2) + 4*Prho1x*Power(Prho1y,2)*Prho2x*Power(Prho2z,2) + 
+                  4*Prho1x*Power(Prho1z,2)*Prho2x*Power(Prho2z,2) + 
+                  2*Power(Prho1y,2)*Power(Prho2x,2)*Power(Prho2z,2) + 
+                  2*Power(Prho1z,2)*Power(Prho2x,2)*Power(Prho2z,2) - 
+                  2*Power(Enu1,2)*Prho1y*Prho2y*Power(Prho2z,2) + 
+                  2*Power(Etau,2)*Prho1y*Prho2y*Power(Prho2z,2) - 
+                  2*Power(Mtau,2)*Prho1y*Prho2y*Power(Prho2z,2) - 
+                  2*Power(Prho1x,2)*Prho1y*Prho2y*Power(Prho2z,2) + 
+                  2*Power(Prho1y,3)*Prho2y*Power(Prho2z,2) + 
+                  2*Prho1y*Power(Prho1z,2)*Prho2y*Power(Prho2z,2) + 
+                  2*Power(Prho1y,2)*Power(Prho2y,2)*Power(Prho2z,2) + 
+                  2*Power(Prho1z,2)*Power(Prho2y,2)*Power(Prho2z,2) - 
+                  2*Power(Enu1,2)*Prho1z*Power(Prho2z,3) + 2*Power(Etau,2)*Prho1z*Power(Prho2z,3) - 
+                  2*Power(Mtau,2)*Prho1z*Power(Prho2z,3) - 2*Power(Prho1x,2)*Prho1z*Power(Prho2z,3) + 
+                  2*Power(Prho1y,2)*Prho1z*Power(Prho2z,3) + 2*Power(Prho1z,3)*Power(Prho2z,3) + 
+                  Power(Prho1y,2)*Power(Prho2z,4) + Power(Prho1z,2)*Power(Prho2z,4)))))/
+         (4*Power(Prho1y,2)*Power(Prho2x,2) + 4*Power(Prho1z,2)*Power(Prho2x,2) - 
+           8*Prho1x*Prho1y*Prho2x*Prho2y + 4*Power(Prho1x,2)*Power(Prho2y,2) + 
+           4*Power(Prho1z,2)*Power(Prho2y,2) - 8*Prho1x*Prho1z*Prho2x*Prho2z - 
+           8*Prho1y*Prho1z*Prho2y*Prho2z + 4*Power(Prho1x,2)*Power(Prho2z,2) + 
+           4*Power(Prho1y,2)*Power(Prho2z,2)) - 
+        (Prho1x*Prho2z*(4*Power(Enu2,2)*Power(Prho1y,2)*Prho2x - 
+             4*Power(Etau,2)*Power(Prho1y,2)*Prho2x + 4*Power(Mtau,2)*Power(Prho1y,2)*Prho2x + 
+             4*Power(Enu2,2)*Power(Prho1z,2)*Prho2x - 4*Power(Etau,2)*Power(Prho1z,2)*Prho2x + 
+             4*Power(Mtau,2)*Power(Prho1z,2)*Prho2x - 8*Prho1x*Power(Prho1y,2)*Power(Prho2x,2) - 
+             8*Prho1x*Power(Prho1z,2)*Power(Prho2x,2) - 4*Power(Prho1y,2)*Power(Prho2x,3) - 
+             4*Power(Prho1z,2)*Power(Prho2x,3) - 4*Power(Enu2,2)*Prho1x*Prho1y*Prho2y + 
+             4*Power(Etau,2)*Prho1x*Prho1y*Prho2y - 4*Power(Mtau,2)*Prho1x*Prho1y*Prho2y + 
+             4*Power(Enu1,2)*Prho1y*Prho2x*Prho2y - 4*Power(Etau,2)*Prho1y*Prho2x*Prho2y + 
+             4*Power(Mtau,2)*Prho1y*Prho2x*Prho2y + 12*Power(Prho1x,2)*Prho1y*Prho2x*Prho2y - 
+             4*Power(Prho1y,3)*Prho2x*Prho2y - 4*Prho1y*Power(Prho1z,2)*Prho2x*Prho2y + 
+             4*Prho1x*Prho1y*Power(Prho2x,2)*Prho2y - 4*Power(Enu1,2)*Prho1x*Power(Prho2y,2) + 
+             4*Power(Etau,2)*Prho1x*Power(Prho2y,2) - 4*Power(Mtau,2)*Prho1x*Power(Prho2y,2) - 
+             4*Power(Prho1x,3)*Power(Prho2y,2) + 4*Prho1x*Power(Prho1y,2)*Power(Prho2y,2) - 
+             4*Prho1x*Power(Prho1z,2)*Power(Prho2y,2) - 4*Power(Prho1y,2)*Prho2x*Power(Prho2y,2) - 
+             4*Power(Prho1z,2)*Prho2x*Power(Prho2y,2) + 4*Prho1x*Prho1y*Power(Prho2y,3) - 
+             4*Power(Enu2,2)*Prho1x*Prho1z*Prho2z + 4*Power(Etau,2)*Prho1x*Prho1z*Prho2z - 
+             4*Power(Mtau,2)*Prho1x*Prho1z*Prho2z + 4*Power(Enu1,2)*Prho1z*Prho2x*Prho2z - 
+             4*Power(Etau,2)*Prho1z*Prho2x*Prho2z + 4*Power(Mtau,2)*Prho1z*Prho2x*Prho2z + 
+             12*Power(Prho1x,2)*Prho1z*Prho2x*Prho2z - 4*Power(Prho1y,2)*Prho1z*Prho2x*Prho2z - 
+             4*Power(Prho1z,3)*Prho2x*Prho2z + 4*Prho1x*Prho1z*Power(Prho2x,2)*Prho2z + 
+             16*Prho1x*Prho1y*Prho1z*Prho2y*Prho2z + 4*Prho1x*Prho1z*Power(Prho2y,2)*Prho2z - 
+             4*Power(Enu1,2)*Prho1x*Power(Prho2z,2) + 4*Power(Etau,2)*Prho1x*Power(Prho2z,2) - 
+             4*Power(Mtau,2)*Prho1x*Power(Prho2z,2) - 4*Power(Prho1x,3)*Power(Prho2z,2) - 
+             4*Prho1x*Power(Prho1y,2)*Power(Prho2z,2) + 4*Prho1x*Power(Prho1z,2)*Power(Prho2z,2) - 
+             4*Power(Prho1y,2)*Prho2x*Power(Prho2z,2) - 4*Power(Prho1z,2)*Prho2x*Power(Prho2z,2) + 
+             4*Prho1x*Prho1y*Prho2y*Power(Prho2z,2) + 4*Prho1x*Prho1z*Power(Prho2z,3) - 
+             Sqrt(Power(-4*Power(Enu2,2)*Power(Prho1y,2)*Prho2x + 
+                 4*Power(Etau,2)*Power(Prho1y,2)*Prho2x - 4*Power(Mtau,2)*Power(Prho1y,2)*Prho2x - 
+                 4*Power(Enu2,2)*Power(Prho1z,2)*Prho2x + 4*Power(Etau,2)*Power(Prho1z,2)*Prho2x - 
+                 4*Power(Mtau,2)*Power(Prho1z,2)*Prho2x + 8*Prho1x*Power(Prho1y,2)*Power(Prho2x,2) + 
+                 8*Prho1x*Power(Prho1z,2)*Power(Prho2x,2) + 4*Power(Prho1y,2)*Power(Prho2x,3) + 
+                 4*Power(Prho1z,2)*Power(Prho2x,3) + 4*Power(Enu2,2)*Prho1x*Prho1y*Prho2y - 
+                 4*Power(Etau,2)*Prho1x*Prho1y*Prho2y + 4*Power(Mtau,2)*Prho1x*Prho1y*Prho2y - 
+                 4*Power(Enu1,2)*Prho1y*Prho2x*Prho2y + 4*Power(Etau,2)*Prho1y*Prho2x*Prho2y - 
+                 4*Power(Mtau,2)*Prho1y*Prho2x*Prho2y - 12*Power(Prho1x,2)*Prho1y*Prho2x*Prho2y + 
+                 4*Power(Prho1y,3)*Prho2x*Prho2y + 4*Prho1y*Power(Prho1z,2)*Prho2x*Prho2y - 
+                 4*Prho1x*Prho1y*Power(Prho2x,2)*Prho2y + 4*Power(Enu1,2)*Prho1x*Power(Prho2y,2) - 
+                 4*Power(Etau,2)*Prho1x*Power(Prho2y,2) + 4*Power(Mtau,2)*Prho1x*Power(Prho2y,2) + 
+                 4*Power(Prho1x,3)*Power(Prho2y,2) - 4*Prho1x*Power(Prho1y,2)*Power(Prho2y,2) + 
+                 4*Prho1x*Power(Prho1z,2)*Power(Prho2y,2) + 4*Power(Prho1y,2)*Prho2x*Power(Prho2y,2) + 
+                 4*Power(Prho1z,2)*Prho2x*Power(Prho2y,2) - 4*Prho1x*Prho1y*Power(Prho2y,3) + 
+                 4*Power(Enu2,2)*Prho1x*Prho1z*Prho2z - 4*Power(Etau,2)*Prho1x*Prho1z*Prho2z + 
+                 4*Power(Mtau,2)*Prho1x*Prho1z*Prho2z - 4*Power(Enu1,2)*Prho1z*Prho2x*Prho2z + 
+                 4*Power(Etau,2)*Prho1z*Prho2x*Prho2z - 4*Power(Mtau,2)*Prho1z*Prho2x*Prho2z - 
+                 12*Power(Prho1x,2)*Prho1z*Prho2x*Prho2z + 4*Power(Prho1y,2)*Prho1z*Prho2x*Prho2z + 
+                 4*Power(Prho1z,3)*Prho2x*Prho2z - 4*Prho1x*Prho1z*Power(Prho2x,2)*Prho2z - 
+                 16*Prho1x*Prho1y*Prho1z*Prho2y*Prho2z - 4*Prho1x*Prho1z*Power(Prho2y,2)*Prho2z + 
+                 4*Power(Enu1,2)*Prho1x*Power(Prho2z,2) - 4*Power(Etau,2)*Prho1x*Power(Prho2z,2) + 
+                 4*Power(Mtau,2)*Prho1x*Power(Prho2z,2) + 4*Power(Prho1x,3)*Power(Prho2z,2) + 
+                 4*Prho1x*Power(Prho1y,2)*Power(Prho2z,2) - 4*Prho1x*Power(Prho1z,2)*Power(Prho2z,2) + 
+                 4*Power(Prho1y,2)*Prho2x*Power(Prho2z,2) + 4*Power(Prho1z,2)*Prho2x*Power(Prho2z,2) - 
+                 4*Prho1x*Prho1y*Prho2y*Power(Prho2z,2) - 4*Prho1x*Prho1z*Power(Prho2z,3),2) - 
+               4*(4*Power(Prho1y,2)*Power(Prho2x,2) + 4*Power(Prho1z,2)*Power(Prho2x,2) - 
+                  8*Prho1x*Prho1y*Prho2x*Prho2y + 4*Power(Prho1x,2)*Power(Prho2y,2) + 
+                  4*Power(Prho1z,2)*Power(Prho2y,2) - 8*Prho1x*Prho1z*Prho2x*Prho2z - 
+                  8*Prho1y*Prho1z*Prho2y*Prho2z + 4*Power(Prho1x,2)*Power(Prho2z,2) + 
+                  4*Power(Prho1y,2)*Power(Prho2z,2))*
+                (Power(Enu2,4)*Power(Prho1y,2) - 2*Power(Enu2,2)*Power(Etau,2)*Power(Prho1y,2) + 
+                  Power(Etau,4)*Power(Prho1y,2) + 2*Power(Enu2,2)*Power(Mtau,2)*Power(Prho1y,2) - 
+                  2*Power(Etau,2)*Power(Mtau,2)*Power(Prho1y,2) + Power(Mtau,4)*Power(Prho1y,2) + 
+                  Power(Enu2,4)*Power(Prho1z,2) - 2*Power(Enu2,2)*Power(Etau,2)*Power(Prho1z,2) + 
+                  Power(Etau,4)*Power(Prho1z,2) + 2*Power(Enu2,2)*Power(Mtau,2)*Power(Prho1z,2) - 
+                  2*Power(Etau,2)*Power(Mtau,2)*Power(Prho1z,2) + Power(Mtau,4)*Power(Prho1z,2) - 
+                  4*Power(Enu2,2)*Prho1x*Power(Prho1y,2)*Prho2x + 
+                  4*Power(Etau,2)*Prho1x*Power(Prho1y,2)*Prho2x - 
+                  4*Power(Mtau,2)*Prho1x*Power(Prho1y,2)*Prho2x - 
+                  4*Power(Enu2,2)*Prho1x*Power(Prho1z,2)*Prho2x + 
+                  4*Power(Etau,2)*Prho1x*Power(Prho1z,2)*Prho2x - 
+                  4*Power(Mtau,2)*Prho1x*Power(Prho1z,2)*Prho2x - 
+                  2*Power(Enu2,2)*Power(Prho1y,2)*Power(Prho2x,2) + 
+                  2*Power(Etau,2)*Power(Prho1y,2)*Power(Prho2x,2) - 
+                  2*Power(Mtau,2)*Power(Prho1y,2)*Power(Prho2x,2) + 
+                  4*Power(Prho1x,2)*Power(Prho1y,2)*Power(Prho2x,2) - 
+                  2*Power(Enu2,2)*Power(Prho1z,2)*Power(Prho2x,2) + 
+                  2*Power(Etau,2)*Power(Prho1z,2)*Power(Prho2x,2) - 
+                  2*Power(Mtau,2)*Power(Prho1z,2)*Power(Prho2x,2) + 
+                  4*Power(Prho1x,2)*Power(Prho1z,2)*Power(Prho2x,2) + 
+                  4*Prho1x*Power(Prho1y,2)*Power(Prho2x,3) + 
+                  4*Prho1x*Power(Prho1z,2)*Power(Prho2x,3) + Power(Prho1y,2)*Power(Prho2x,4) + 
+                  Power(Prho1z,2)*Power(Prho2x,4) + 2*Power(Enu1,2)*Power(Enu2,2)*Prho1y*Prho2y - 
+                  2*Power(Enu1,2)*Power(Etau,2)*Prho1y*Prho2y - 
+                  2*Power(Enu2,2)*Power(Etau,2)*Prho1y*Prho2y + 2*Power(Etau,4)*Prho1y*Prho2y + 
+                  2*Power(Enu1,2)*Power(Mtau,2)*Prho1y*Prho2y + 
+                  2*Power(Enu2,2)*Power(Mtau,2)*Prho1y*Prho2y - 
+                  4*Power(Etau,2)*Power(Mtau,2)*Prho1y*Prho2y + 2*Power(Mtau,4)*Prho1y*Prho2y + 
+                  2*Power(Enu2,2)*Power(Prho1x,2)*Prho1y*Prho2y - 
+                  2*Power(Etau,2)*Power(Prho1x,2)*Prho1y*Prho2y + 
+                  2*Power(Mtau,2)*Power(Prho1x,2)*Prho1y*Prho2y - 
+                  2*Power(Enu2,2)*Power(Prho1y,3)*Prho2y + 2*Power(Etau,2)*Power(Prho1y,3)*Prho2y - 
+                  2*Power(Mtau,2)*Power(Prho1y,3)*Prho2y - 
+                  2*Power(Enu2,2)*Prho1y*Power(Prho1z,2)*Prho2y + 
+                  2*Power(Etau,2)*Prho1y*Power(Prho1z,2)*Prho2y - 
+                  2*Power(Mtau,2)*Prho1y*Power(Prho1z,2)*Prho2y - 
+                  4*Power(Enu1,2)*Prho1x*Prho1y*Prho2x*Prho2y + 
+                  4*Power(Etau,2)*Prho1x*Prho1y*Prho2x*Prho2y - 
+                  4*Power(Mtau,2)*Prho1x*Prho1y*Prho2x*Prho2y - 
+                  4*Power(Prho1x,3)*Prho1y*Prho2x*Prho2y + 4*Prho1x*Power(Prho1y,3)*Prho2x*Prho2y + 
+                  4*Prho1x*Prho1y*Power(Prho1z,2)*Prho2x*Prho2y - 
+                  2*Power(Enu1,2)*Prho1y*Power(Prho2x,2)*Prho2y + 
+                  2*Power(Etau,2)*Prho1y*Power(Prho2x,2)*Prho2y - 
+                  2*Power(Mtau,2)*Prho1y*Power(Prho2x,2)*Prho2y - 
+                  2*Power(Prho1x,2)*Prho1y*Power(Prho2x,2)*Prho2y + 
+                  2*Power(Prho1y,3)*Power(Prho2x,2)*Prho2y + 
+                  2*Prho1y*Power(Prho1z,2)*Power(Prho2x,2)*Prho2y + Power(Enu1,4)*Power(Prho2y,2) - 
+                  2*Power(Enu1,2)*Power(Etau,2)*Power(Prho2y,2) + Power(Etau,4)*Power(Prho2y,2) + 
+                  2*Power(Enu1,2)*Power(Mtau,2)*Power(Prho2y,2) - 
+                  2*Power(Etau,2)*Power(Mtau,2)*Power(Prho2y,2) + Power(Mtau,4)*Power(Prho2y,2) + 
+                  2*Power(Enu1,2)*Power(Prho1x,2)*Power(Prho2y,2) - 
+                  2*Power(Etau,2)*Power(Prho1x,2)*Power(Prho2y,2) + 
+                  2*Power(Mtau,2)*Power(Prho1x,2)*Power(Prho2y,2) + Power(Prho1x,4)*Power(Prho2y,2) - 
+                  2*Power(Enu1,2)*Power(Prho1y,2)*Power(Prho2y,2) - 
+                  2*Power(Enu2,2)*Power(Prho1y,2)*Power(Prho2y,2) + 
+                  4*Power(Etau,2)*Power(Prho1y,2)*Power(Prho2y,2) - 
+                  4*Power(Mtau,2)*Power(Prho1y,2)*Power(Prho2y,2) - 
+                  2*Power(Prho1x,2)*Power(Prho1y,2)*Power(Prho2y,2) + 
+                  Power(Prho1y,4)*Power(Prho2y,2) - 2*Power(Enu1,2)*Power(Prho1z,2)*Power(Prho2y,2) - 
+                  2*Power(Enu2,2)*Power(Prho1z,2)*Power(Prho2y,2) + 
+                  2*Power(Prho1x,2)*Power(Prho1z,2)*Power(Prho2y,2) + 
+                  2*Power(Prho1y,2)*Power(Prho1z,2)*Power(Prho2y,2) + 
+                  Power(Prho1z,4)*Power(Prho2y,2) + 4*Prho1x*Power(Prho1y,2)*Prho2x*Power(Prho2y,2) + 
+                  4*Prho1x*Power(Prho1z,2)*Prho2x*Power(Prho2y,2) + 
+                  2*Power(Prho1y,2)*Power(Prho2x,2)*Power(Prho2y,2) + 
+                  2*Power(Prho1z,2)*Power(Prho2x,2)*Power(Prho2y,2) - 
+                  2*Power(Enu1,2)*Prho1y*Power(Prho2y,3) + 2*Power(Etau,2)*Prho1y*Power(Prho2y,3) - 
+                  2*Power(Mtau,2)*Prho1y*Power(Prho2y,3) - 2*Power(Prho1x,2)*Prho1y*Power(Prho2y,3) + 
+                  2*Power(Prho1y,3)*Power(Prho2y,3) + 2*Prho1y*Power(Prho1z,2)*Power(Prho2y,3) + 
+                  Power(Prho1y,2)*Power(Prho2y,4) + Power(Prho1z,2)*Power(Prho2y,4) + 
+                  2*Power(Enu1,2)*Power(Enu2,2)*Prho1z*Prho2z - 
+                  2*Power(Enu1,2)*Power(Etau,2)*Prho1z*Prho2z - 
+                  2*Power(Enu2,2)*Power(Etau,2)*Prho1z*Prho2z + 2*Power(Etau,4)*Prho1z*Prho2z + 
+                  2*Power(Enu1,2)*Power(Mtau,2)*Prho1z*Prho2z + 
+                  2*Power(Enu2,2)*Power(Mtau,2)*Prho1z*Prho2z - 
+                  4*Power(Etau,2)*Power(Mtau,2)*Prho1z*Prho2z + 2*Power(Mtau,4)*Prho1z*Prho2z + 
+                  2*Power(Enu2,2)*Power(Prho1x,2)*Prho1z*Prho2z - 
+                  2*Power(Etau,2)*Power(Prho1x,2)*Prho1z*Prho2z + 
+                  2*Power(Mtau,2)*Power(Prho1x,2)*Prho1z*Prho2z - 
+                  2*Power(Enu2,2)*Power(Prho1y,2)*Prho1z*Prho2z + 
+                  2*Power(Etau,2)*Power(Prho1y,2)*Prho1z*Prho2z - 
+                  2*Power(Mtau,2)*Power(Prho1y,2)*Prho1z*Prho2z - 
+                  2*Power(Enu2,2)*Power(Prho1z,3)*Prho2z + 2*Power(Etau,2)*Power(Prho1z,3)*Prho2z - 
+                  2*Power(Mtau,2)*Power(Prho1z,3)*Prho2z - 
+                  4*Power(Enu1,2)*Prho1x*Prho1z*Prho2x*Prho2z + 
+                  4*Power(Etau,2)*Prho1x*Prho1z*Prho2x*Prho2z - 
+                  4*Power(Mtau,2)*Prho1x*Prho1z*Prho2x*Prho2z - 
+                  4*Power(Prho1x,3)*Prho1z*Prho2x*Prho2z + 
+                  4*Prho1x*Power(Prho1y,2)*Prho1z*Prho2x*Prho2z + 
+                  4*Prho1x*Power(Prho1z,3)*Prho2x*Prho2z - 
+                  2*Power(Enu1,2)*Prho1z*Power(Prho2x,2)*Prho2z + 
+                  2*Power(Etau,2)*Prho1z*Power(Prho2x,2)*Prho2z - 
+                  2*Power(Mtau,2)*Prho1z*Power(Prho2x,2)*Prho2z - 
+                  2*Power(Prho1x,2)*Prho1z*Power(Prho2x,2)*Prho2z + 
+                  2*Power(Prho1y,2)*Prho1z*Power(Prho2x,2)*Prho2z + 
+                  2*Power(Prho1z,3)*Power(Prho2x,2)*Prho2z + 
+                  8*Power(Etau,2)*Prho1y*Prho1z*Prho2y*Prho2z - 
+                  8*Power(Mtau,2)*Prho1y*Prho1z*Prho2y*Prho2z - 
+                  8*Power(Prho1x,2)*Prho1y*Prho1z*Prho2y*Prho2z - 
+                  2*Power(Enu1,2)*Prho1z*Power(Prho2y,2)*Prho2z + 
+                  2*Power(Etau,2)*Prho1z*Power(Prho2y,2)*Prho2z - 
+                  2*Power(Mtau,2)*Prho1z*Power(Prho2y,2)*Prho2z - 
+                  2*Power(Prho1x,2)*Prho1z*Power(Prho2y,2)*Prho2z + 
+                  2*Power(Prho1y,2)*Prho1z*Power(Prho2y,2)*Prho2z + 
+                  2*Power(Prho1z,3)*Power(Prho2y,2)*Prho2z + Power(Enu1,4)*Power(Prho2z,2) - 
+                  2*Power(Enu1,2)*Power(Etau,2)*Power(Prho2z,2) + Power(Etau,4)*Power(Prho2z,2) + 
+                  2*Power(Enu1,2)*Power(Mtau,2)*Power(Prho2z,2) - 
+                  2*Power(Etau,2)*Power(Mtau,2)*Power(Prho2z,2) + Power(Mtau,4)*Power(Prho2z,2) + 
+                  2*Power(Enu1,2)*Power(Prho1x,2)*Power(Prho2z,2) - 
+                  2*Power(Etau,2)*Power(Prho1x,2)*Power(Prho2z,2) + 
+                  2*Power(Mtau,2)*Power(Prho1x,2)*Power(Prho2z,2) + Power(Prho1x,4)*Power(Prho2z,2) - 
+                  2*Power(Enu1,2)*Power(Prho1y,2)*Power(Prho2z,2) - 
+                  2*Power(Enu2,2)*Power(Prho1y,2)*Power(Prho2z,2) + 
+                  2*Power(Prho1x,2)*Power(Prho1y,2)*Power(Prho2z,2) + 
+                  Power(Prho1y,4)*Power(Prho2z,2) - 2*Power(Enu1,2)*Power(Prho1z,2)*Power(Prho2z,2) - 
+                  2*Power(Enu2,2)*Power(Prho1z,2)*Power(Prho2z,2) + 
+                  4*Power(Etau,2)*Power(Prho1z,2)*Power(Prho2z,2) - 
+                  4*Power(Mtau,2)*Power(Prho1z,2)*Power(Prho2z,2) - 
+                  2*Power(Prho1x,2)*Power(Prho1z,2)*Power(Prho2z,2) + 
+                  2*Power(Prho1y,2)*Power(Prho1z,2)*Power(Prho2z,2) + 
+                  Power(Prho1z,4)*Power(Prho2z,2) + 4*Prho1x*Power(Prho1y,2)*Prho2x*Power(Prho2z,2) + 
+                  4*Prho1x*Power(Prho1z,2)*Prho2x*Power(Prho2z,2) + 
+                  2*Power(Prho1y,2)*Power(Prho2x,2)*Power(Prho2z,2) + 
+                  2*Power(Prho1z,2)*Power(Prho2x,2)*Power(Prho2z,2) - 
+                  2*Power(Enu1,2)*Prho1y*Prho2y*Power(Prho2z,2) + 
+                  2*Power(Etau,2)*Prho1y*Prho2y*Power(Prho2z,2) - 
+                  2*Power(Mtau,2)*Prho1y*Prho2y*Power(Prho2z,2) - 
+                  2*Power(Prho1x,2)*Prho1y*Prho2y*Power(Prho2z,2) + 
+                  2*Power(Prho1y,3)*Prho2y*Power(Prho2z,2) + 
+                  2*Prho1y*Power(Prho1z,2)*Prho2y*Power(Prho2z,2) + 
+                  2*Power(Prho1y,2)*Power(Prho2y,2)*Power(Prho2z,2) + 
+                  2*Power(Prho1z,2)*Power(Prho2y,2)*Power(Prho2z,2) - 
+                  2*Power(Enu1,2)*Prho1z*Power(Prho2z,3) + 2*Power(Etau,2)*Prho1z*Power(Prho2z,3) - 
+                  2*Power(Mtau,2)*Prho1z*Power(Prho2z,3) - 2*Power(Prho1x,2)*Prho1z*Power(Prho2z,3) + 
+                  2*Power(Prho1y,2)*Prho1z*Power(Prho2z,3) + 2*Power(Prho1z,3)*Power(Prho2z,3) + 
+                  Power(Prho1y,2)*Power(Prho2z,4) + Power(Prho1z,2)*Power(Prho2z,4)))))/
+         (4*Power(Prho1y,2)*Power(Prho2x,2) + 4*Power(Prho1z,2)*Power(Prho2x,2) - 
+           8*Prho1x*Prho1y*Prho2x*Prho2y + 4*Power(Prho1x,2)*Power(Prho2y,2) + 
+           4*Power(Prho1z,2)*Power(Prho2y,2) - 8*Prho1x*Prho1z*Prho2x*Prho2z - 
+           8*Prho1y*Prho1z*Prho2y*Prho2z + 4*Power(Prho1x,2)*Power(Prho2z,2) + 
+           4*Power(Prho1y,2)*Power(Prho2z,2)))/(-2*Prho1z*Prho2y + 2*Prho1y*Prho2z);
+
+    Double_t Pz = (-(Power(Enu2,2)*Prho1y) + Power(Etau,2)*Prho1y - Power(Mtau,2)*Prho1y + 
+        2*Prho1x*Prho1y*Prho2x + Prho1y*Power(Prho2x,2) - Power(Enu1,2)*Prho2y + 
+        Power(Etau,2)*Prho2y - Power(Mtau,2)*Prho2y - Power(Prho1x,2)*Prho2y + 
+        Power(Prho1y,2)*Prho2y - Power(Prho1z,2)*Prho2y + Prho1y*Power(Prho2y,2) + 
+        2*Prho1y*Prho1z*Prho2z + Prho1y*Power(Prho2z,2) + 
+        (Prho1y*Prho2x*(4*Power(Enu2,2)*Power(Prho1y,2)*Prho2x - 
+             4*Power(Etau,2)*Power(Prho1y,2)*Prho2x + 4*Power(Mtau,2)*Power(Prho1y,2)*Prho2x + 
+             4*Power(Enu2,2)*Power(Prho1z,2)*Prho2x - 4*Power(Etau,2)*Power(Prho1z,2)*Prho2x + 
+             4*Power(Mtau,2)*Power(Prho1z,2)*Prho2x - 8*Prho1x*Power(Prho1y,2)*Power(Prho2x,2) - 
+             8*Prho1x*Power(Prho1z,2)*Power(Prho2x,2) - 4*Power(Prho1y,2)*Power(Prho2x,3) - 
+             4*Power(Prho1z,2)*Power(Prho2x,3) - 4*Power(Enu2,2)*Prho1x*Prho1y*Prho2y + 
+             4*Power(Etau,2)*Prho1x*Prho1y*Prho2y - 4*Power(Mtau,2)*Prho1x*Prho1y*Prho2y + 
+             4*Power(Enu1,2)*Prho1y*Prho2x*Prho2y - 4*Power(Etau,2)*Prho1y*Prho2x*Prho2y + 
+             4*Power(Mtau,2)*Prho1y*Prho2x*Prho2y + 12*Power(Prho1x,2)*Prho1y*Prho2x*Prho2y - 
+             4*Power(Prho1y,3)*Prho2x*Prho2y - 4*Prho1y*Power(Prho1z,2)*Prho2x*Prho2y + 
+             4*Prho1x*Prho1y*Power(Prho2x,2)*Prho2y - 4*Power(Enu1,2)*Prho1x*Power(Prho2y,2) + 
+             4*Power(Etau,2)*Prho1x*Power(Prho2y,2) - 4*Power(Mtau,2)*Prho1x*Power(Prho2y,2) - 
+             4*Power(Prho1x,3)*Power(Prho2y,2) + 4*Prho1x*Power(Prho1y,2)*Power(Prho2y,2) - 
+             4*Prho1x*Power(Prho1z,2)*Power(Prho2y,2) - 4*Power(Prho1y,2)*Prho2x*Power(Prho2y,2) - 
+             4*Power(Prho1z,2)*Prho2x*Power(Prho2y,2) + 4*Prho1x*Prho1y*Power(Prho2y,3) - 
+             4*Power(Enu2,2)*Prho1x*Prho1z*Prho2z + 4*Power(Etau,2)*Prho1x*Prho1z*Prho2z - 
+             4*Power(Mtau,2)*Prho1x*Prho1z*Prho2z + 4*Power(Enu1,2)*Prho1z*Prho2x*Prho2z - 
+             4*Power(Etau,2)*Prho1z*Prho2x*Prho2z + 4*Power(Mtau,2)*Prho1z*Prho2x*Prho2z + 
+             12*Power(Prho1x,2)*Prho1z*Prho2x*Prho2z - 4*Power(Prho1y,2)*Prho1z*Prho2x*Prho2z - 
+             4*Power(Prho1z,3)*Prho2x*Prho2z + 4*Prho1x*Prho1z*Power(Prho2x,2)*Prho2z + 
+             16*Prho1x*Prho1y*Prho1z*Prho2y*Prho2z + 4*Prho1x*Prho1z*Power(Prho2y,2)*Prho2z - 
+             4*Power(Enu1,2)*Prho1x*Power(Prho2z,2) + 4*Power(Etau,2)*Prho1x*Power(Prho2z,2) - 
+             4*Power(Mtau,2)*Prho1x*Power(Prho2z,2) - 4*Power(Prho1x,3)*Power(Prho2z,2) - 
+             4*Prho1x*Power(Prho1y,2)*Power(Prho2z,2) + 4*Prho1x*Power(Prho1z,2)*Power(Prho2z,2) - 
+             4*Power(Prho1y,2)*Prho2x*Power(Prho2z,2) - 4*Power(Prho1z,2)*Prho2x*Power(Prho2z,2) + 
+             4*Prho1x*Prho1y*Prho2y*Power(Prho2z,2) + 4*Prho1x*Prho1z*Power(Prho2z,3) - 
+             Sqrt(Power(-4*Power(Enu2,2)*Power(Prho1y,2)*Prho2x + 
+                 4*Power(Etau,2)*Power(Prho1y,2)*Prho2x - 4*Power(Mtau,2)*Power(Prho1y,2)*Prho2x - 
+                 4*Power(Enu2,2)*Power(Prho1z,2)*Prho2x + 4*Power(Etau,2)*Power(Prho1z,2)*Prho2x - 
+                 4*Power(Mtau,2)*Power(Prho1z,2)*Prho2x + 8*Prho1x*Power(Prho1y,2)*Power(Prho2x,2) + 
+                 8*Prho1x*Power(Prho1z,2)*Power(Prho2x,2) + 4*Power(Prho1y,2)*Power(Prho2x,3) + 
+                 4*Power(Prho1z,2)*Power(Prho2x,3) + 4*Power(Enu2,2)*Prho1x*Prho1y*Prho2y - 
+                 4*Power(Etau,2)*Prho1x*Prho1y*Prho2y + 4*Power(Mtau,2)*Prho1x*Prho1y*Prho2y - 
+                 4*Power(Enu1,2)*Prho1y*Prho2x*Prho2y + 4*Power(Etau,2)*Prho1y*Prho2x*Prho2y - 
+                 4*Power(Mtau,2)*Prho1y*Prho2x*Prho2y - 12*Power(Prho1x,2)*Prho1y*Prho2x*Prho2y + 
+                 4*Power(Prho1y,3)*Prho2x*Prho2y + 4*Prho1y*Power(Prho1z,2)*Prho2x*Prho2y - 
+                 4*Prho1x*Prho1y*Power(Prho2x,2)*Prho2y + 4*Power(Enu1,2)*Prho1x*Power(Prho2y,2) - 
+                 4*Power(Etau,2)*Prho1x*Power(Prho2y,2) + 4*Power(Mtau,2)*Prho1x*Power(Prho2y,2) + 
+                 4*Power(Prho1x,3)*Power(Prho2y,2) - 4*Prho1x*Power(Prho1y,2)*Power(Prho2y,2) + 
+                 4*Prho1x*Power(Prho1z,2)*Power(Prho2y,2) + 4*Power(Prho1y,2)*Prho2x*Power(Prho2y,2) + 
+                 4*Power(Prho1z,2)*Prho2x*Power(Prho2y,2) - 4*Prho1x*Prho1y*Power(Prho2y,3) + 
+                 4*Power(Enu2,2)*Prho1x*Prho1z*Prho2z - 4*Power(Etau,2)*Prho1x*Prho1z*Prho2z + 
+                 4*Power(Mtau,2)*Prho1x*Prho1z*Prho2z - 4*Power(Enu1,2)*Prho1z*Prho2x*Prho2z + 
+                 4*Power(Etau,2)*Prho1z*Prho2x*Prho2z - 4*Power(Mtau,2)*Prho1z*Prho2x*Prho2z - 
+                 12*Power(Prho1x,2)*Prho1z*Prho2x*Prho2z + 4*Power(Prho1y,2)*Prho1z*Prho2x*Prho2z + 
+                 4*Power(Prho1z,3)*Prho2x*Prho2z - 4*Prho1x*Prho1z*Power(Prho2x,2)*Prho2z - 
+                 16*Prho1x*Prho1y*Prho1z*Prho2y*Prho2z - 4*Prho1x*Prho1z*Power(Prho2y,2)*Prho2z + 
+                 4*Power(Enu1,2)*Prho1x*Power(Prho2z,2) - 4*Power(Etau,2)*Prho1x*Power(Prho2z,2) + 
+                 4*Power(Mtau,2)*Prho1x*Power(Prho2z,2) + 4*Power(Prho1x,3)*Power(Prho2z,2) + 
+                 4*Prho1x*Power(Prho1y,2)*Power(Prho2z,2) - 4*Prho1x*Power(Prho1z,2)*Power(Prho2z,2) + 
+                 4*Power(Prho1y,2)*Prho2x*Power(Prho2z,2) + 4*Power(Prho1z,2)*Prho2x*Power(Prho2z,2) - 
+                 4*Prho1x*Prho1y*Prho2y*Power(Prho2z,2) - 4*Prho1x*Prho1z*Power(Prho2z,3),2) - 
+               4*(4*Power(Prho1y,2)*Power(Prho2x,2) + 4*Power(Prho1z,2)*Power(Prho2x,2) - 
+                  8*Prho1x*Prho1y*Prho2x*Prho2y + 4*Power(Prho1x,2)*Power(Prho2y,2) + 
+                  4*Power(Prho1z,2)*Power(Prho2y,2) - 8*Prho1x*Prho1z*Prho2x*Prho2z - 
+                  8*Prho1y*Prho1z*Prho2y*Prho2z + 4*Power(Prho1x,2)*Power(Prho2z,2) + 
+                  4*Power(Prho1y,2)*Power(Prho2z,2))*
+                (Power(Enu2,4)*Power(Prho1y,2) - 2*Power(Enu2,2)*Power(Etau,2)*Power(Prho1y,2) + 
+                  Power(Etau,4)*Power(Prho1y,2) + 2*Power(Enu2,2)*Power(Mtau,2)*Power(Prho1y,2) - 
+                  2*Power(Etau,2)*Power(Mtau,2)*Power(Prho1y,2) + Power(Mtau,4)*Power(Prho1y,2) + 
+                  Power(Enu2,4)*Power(Prho1z,2) - 2*Power(Enu2,2)*Power(Etau,2)*Power(Prho1z,2) + 
+                  Power(Etau,4)*Power(Prho1z,2) + 2*Power(Enu2,2)*Power(Mtau,2)*Power(Prho1z,2) - 
+                  2*Power(Etau,2)*Power(Mtau,2)*Power(Prho1z,2) + Power(Mtau,4)*Power(Prho1z,2) - 
+                  4*Power(Enu2,2)*Prho1x*Power(Prho1y,2)*Prho2x + 
+                  4*Power(Etau,2)*Prho1x*Power(Prho1y,2)*Prho2x - 
+                  4*Power(Mtau,2)*Prho1x*Power(Prho1y,2)*Prho2x - 
+                  4*Power(Enu2,2)*Prho1x*Power(Prho1z,2)*Prho2x + 
+                  4*Power(Etau,2)*Prho1x*Power(Prho1z,2)*Prho2x - 
+                  4*Power(Mtau,2)*Prho1x*Power(Prho1z,2)*Prho2x - 
+                  2*Power(Enu2,2)*Power(Prho1y,2)*Power(Prho2x,2) + 
+                  2*Power(Etau,2)*Power(Prho1y,2)*Power(Prho2x,2) - 
+                  2*Power(Mtau,2)*Power(Prho1y,2)*Power(Prho2x,2) + 
+                  4*Power(Prho1x,2)*Power(Prho1y,2)*Power(Prho2x,2) - 
+                  2*Power(Enu2,2)*Power(Prho1z,2)*Power(Prho2x,2) + 
+                  2*Power(Etau,2)*Power(Prho1z,2)*Power(Prho2x,2) - 
+                  2*Power(Mtau,2)*Power(Prho1z,2)*Power(Prho2x,2) + 
+                  4*Power(Prho1x,2)*Power(Prho1z,2)*Power(Prho2x,2) + 
+                  4*Prho1x*Power(Prho1y,2)*Power(Prho2x,3) + 
+                  4*Prho1x*Power(Prho1z,2)*Power(Prho2x,3) + Power(Prho1y,2)*Power(Prho2x,4) + 
+                  Power(Prho1z,2)*Power(Prho2x,4) + 2*Power(Enu1,2)*Power(Enu2,2)*Prho1y*Prho2y - 
+                  2*Power(Enu1,2)*Power(Etau,2)*Prho1y*Prho2y - 
+                  2*Power(Enu2,2)*Power(Etau,2)*Prho1y*Prho2y + 2*Power(Etau,4)*Prho1y*Prho2y + 
+                  2*Power(Enu1,2)*Power(Mtau,2)*Prho1y*Prho2y + 
+                  2*Power(Enu2,2)*Power(Mtau,2)*Prho1y*Prho2y - 
+                  4*Power(Etau,2)*Power(Mtau,2)*Prho1y*Prho2y + 2*Power(Mtau,4)*Prho1y*Prho2y + 
+                  2*Power(Enu2,2)*Power(Prho1x,2)*Prho1y*Prho2y - 
+                  2*Power(Etau,2)*Power(Prho1x,2)*Prho1y*Prho2y + 
+                  2*Power(Mtau,2)*Power(Prho1x,2)*Prho1y*Prho2y - 
+                  2*Power(Enu2,2)*Power(Prho1y,3)*Prho2y + 2*Power(Etau,2)*Power(Prho1y,3)*Prho2y - 
+                  2*Power(Mtau,2)*Power(Prho1y,3)*Prho2y - 
+                  2*Power(Enu2,2)*Prho1y*Power(Prho1z,2)*Prho2y + 
+                  2*Power(Etau,2)*Prho1y*Power(Prho1z,2)*Prho2y - 
+                  2*Power(Mtau,2)*Prho1y*Power(Prho1z,2)*Prho2y - 
+                  4*Power(Enu1,2)*Prho1x*Prho1y*Prho2x*Prho2y + 
+                  4*Power(Etau,2)*Prho1x*Prho1y*Prho2x*Prho2y - 
+                  4*Power(Mtau,2)*Prho1x*Prho1y*Prho2x*Prho2y - 
+                  4*Power(Prho1x,3)*Prho1y*Prho2x*Prho2y + 4*Prho1x*Power(Prho1y,3)*Prho2x*Prho2y + 
+                  4*Prho1x*Prho1y*Power(Prho1z,2)*Prho2x*Prho2y - 
+                  2*Power(Enu1,2)*Prho1y*Power(Prho2x,2)*Prho2y + 
+                  2*Power(Etau,2)*Prho1y*Power(Prho2x,2)*Prho2y - 
+                  2*Power(Mtau,2)*Prho1y*Power(Prho2x,2)*Prho2y - 
+                  2*Power(Prho1x,2)*Prho1y*Power(Prho2x,2)*Prho2y + 
+                  2*Power(Prho1y,3)*Power(Prho2x,2)*Prho2y + 
+                  2*Prho1y*Power(Prho1z,2)*Power(Prho2x,2)*Prho2y + Power(Enu1,4)*Power(Prho2y,2) - 
+                  2*Power(Enu1,2)*Power(Etau,2)*Power(Prho2y,2) + Power(Etau,4)*Power(Prho2y,2) + 
+                  2*Power(Enu1,2)*Power(Mtau,2)*Power(Prho2y,2) - 
+                  2*Power(Etau,2)*Power(Mtau,2)*Power(Prho2y,2) + Power(Mtau,4)*Power(Prho2y,2) + 
+                  2*Power(Enu1,2)*Power(Prho1x,2)*Power(Prho2y,2) - 
+                  2*Power(Etau,2)*Power(Prho1x,2)*Power(Prho2y,2) + 
+                  2*Power(Mtau,2)*Power(Prho1x,2)*Power(Prho2y,2) + Power(Prho1x,4)*Power(Prho2y,2) - 
+                  2*Power(Enu1,2)*Power(Prho1y,2)*Power(Prho2y,2) - 
+                  2*Power(Enu2,2)*Power(Prho1y,2)*Power(Prho2y,2) + 
+                  4*Power(Etau,2)*Power(Prho1y,2)*Power(Prho2y,2) - 
+                  4*Power(Mtau,2)*Power(Prho1y,2)*Power(Prho2y,2) - 
+                  2*Power(Prho1x,2)*Power(Prho1y,2)*Power(Prho2y,2) + 
+                  Power(Prho1y,4)*Power(Prho2y,2) - 2*Power(Enu1,2)*Power(Prho1z,2)*Power(Prho2y,2) - 
+                  2*Power(Enu2,2)*Power(Prho1z,2)*Power(Prho2y,2) + 
+                  2*Power(Prho1x,2)*Power(Prho1z,2)*Power(Prho2y,2) + 
+                  2*Power(Prho1y,2)*Power(Prho1z,2)*Power(Prho2y,2) + 
+                  Power(Prho1z,4)*Power(Prho2y,2) + 4*Prho1x*Power(Prho1y,2)*Prho2x*Power(Prho2y,2) + 
+                  4*Prho1x*Power(Prho1z,2)*Prho2x*Power(Prho2y,2) + 
+                  2*Power(Prho1y,2)*Power(Prho2x,2)*Power(Prho2y,2) + 
+                  2*Power(Prho1z,2)*Power(Prho2x,2)*Power(Prho2y,2) - 
+                  2*Power(Enu1,2)*Prho1y*Power(Prho2y,3) + 2*Power(Etau,2)*Prho1y*Power(Prho2y,3) - 
+                  2*Power(Mtau,2)*Prho1y*Power(Prho2y,3) - 2*Power(Prho1x,2)*Prho1y*Power(Prho2y,3) + 
+                  2*Power(Prho1y,3)*Power(Prho2y,3) + 2*Prho1y*Power(Prho1z,2)*Power(Prho2y,3) + 
+                  Power(Prho1y,2)*Power(Prho2y,4) + Power(Prho1z,2)*Power(Prho2y,4) + 
+                  2*Power(Enu1,2)*Power(Enu2,2)*Prho1z*Prho2z - 
+                  2*Power(Enu1,2)*Power(Etau,2)*Prho1z*Prho2z - 
+                  2*Power(Enu2,2)*Power(Etau,2)*Prho1z*Prho2z + 2*Power(Etau,4)*Prho1z*Prho2z + 
+                  2*Power(Enu1,2)*Power(Mtau,2)*Prho1z*Prho2z + 
+                  2*Power(Enu2,2)*Power(Mtau,2)*Prho1z*Prho2z - 
+                  4*Power(Etau,2)*Power(Mtau,2)*Prho1z*Prho2z + 2*Power(Mtau,4)*Prho1z*Prho2z + 
+                  2*Power(Enu2,2)*Power(Prho1x,2)*Prho1z*Prho2z - 
+                  2*Power(Etau,2)*Power(Prho1x,2)*Prho1z*Prho2z + 
+                  2*Power(Mtau,2)*Power(Prho1x,2)*Prho1z*Prho2z - 
+                  2*Power(Enu2,2)*Power(Prho1y,2)*Prho1z*Prho2z + 
+                  2*Power(Etau,2)*Power(Prho1y,2)*Prho1z*Prho2z - 
+                  2*Power(Mtau,2)*Power(Prho1y,2)*Prho1z*Prho2z - 
+                  2*Power(Enu2,2)*Power(Prho1z,3)*Prho2z + 2*Power(Etau,2)*Power(Prho1z,3)*Prho2z - 
+                  2*Power(Mtau,2)*Power(Prho1z,3)*Prho2z - 
+                  4*Power(Enu1,2)*Prho1x*Prho1z*Prho2x*Prho2z + 
+                  4*Power(Etau,2)*Prho1x*Prho1z*Prho2x*Prho2z - 
+                  4*Power(Mtau,2)*Prho1x*Prho1z*Prho2x*Prho2z - 
+                  4*Power(Prho1x,3)*Prho1z*Prho2x*Prho2z + 
+                  4*Prho1x*Power(Prho1y,2)*Prho1z*Prho2x*Prho2z + 
+                  4*Prho1x*Power(Prho1z,3)*Prho2x*Prho2z - 
+                  2*Power(Enu1,2)*Prho1z*Power(Prho2x,2)*Prho2z + 
+                  2*Power(Etau,2)*Prho1z*Power(Prho2x,2)*Prho2z - 
+                  2*Power(Mtau,2)*Prho1z*Power(Prho2x,2)*Prho2z - 
+                  2*Power(Prho1x,2)*Prho1z*Power(Prho2x,2)*Prho2z + 
+                  2*Power(Prho1y,2)*Prho1z*Power(Prho2x,2)*Prho2z + 
+                  2*Power(Prho1z,3)*Power(Prho2x,2)*Prho2z + 
+                  8*Power(Etau,2)*Prho1y*Prho1z*Prho2y*Prho2z - 
+                  8*Power(Mtau,2)*Prho1y*Prho1z*Prho2y*Prho2z - 
+                  8*Power(Prho1x,2)*Prho1y*Prho1z*Prho2y*Prho2z - 
+                  2*Power(Enu1,2)*Prho1z*Power(Prho2y,2)*Prho2z + 
+                  2*Power(Etau,2)*Prho1z*Power(Prho2y,2)*Prho2z - 
+                  2*Power(Mtau,2)*Prho1z*Power(Prho2y,2)*Prho2z - 
+                  2*Power(Prho1x,2)*Prho1z*Power(Prho2y,2)*Prho2z + 
+                  2*Power(Prho1y,2)*Prho1z*Power(Prho2y,2)*Prho2z + 
+                  2*Power(Prho1z,3)*Power(Prho2y,2)*Prho2z + Power(Enu1,4)*Power(Prho2z,2) - 
+                  2*Power(Enu1,2)*Power(Etau,2)*Power(Prho2z,2) + Power(Etau,4)*Power(Prho2z,2) + 
+                  2*Power(Enu1,2)*Power(Mtau,2)*Power(Prho2z,2) - 
+                  2*Power(Etau,2)*Power(Mtau,2)*Power(Prho2z,2) + Power(Mtau,4)*Power(Prho2z,2) + 
+                  2*Power(Enu1,2)*Power(Prho1x,2)*Power(Prho2z,2) - 
+                  2*Power(Etau,2)*Power(Prho1x,2)*Power(Prho2z,2) + 
+                  2*Power(Mtau,2)*Power(Prho1x,2)*Power(Prho2z,2) + Power(Prho1x,4)*Power(Prho2z,2) - 
+                  2*Power(Enu1,2)*Power(Prho1y,2)*Power(Prho2z,2) - 
+                  2*Power(Enu2,2)*Power(Prho1y,2)*Power(Prho2z,2) + 
+                  2*Power(Prho1x,2)*Power(Prho1y,2)*Power(Prho2z,2) + 
+                  Power(Prho1y,4)*Power(Prho2z,2) - 2*Power(Enu1,2)*Power(Prho1z,2)*Power(Prho2z,2) - 
+                  2*Power(Enu2,2)*Power(Prho1z,2)*Power(Prho2z,2) + 
+                  4*Power(Etau,2)*Power(Prho1z,2)*Power(Prho2z,2) - 
+                  4*Power(Mtau,2)*Power(Prho1z,2)*Power(Prho2z,2) - 
+                  2*Power(Prho1x,2)*Power(Prho1z,2)*Power(Prho2z,2) + 
+                  2*Power(Prho1y,2)*Power(Prho1z,2)*Power(Prho2z,2) + 
+                  Power(Prho1z,4)*Power(Prho2z,2) + 4*Prho1x*Power(Prho1y,2)*Prho2x*Power(Prho2z,2) + 
+                  4*Prho1x*Power(Prho1z,2)*Prho2x*Power(Prho2z,2) + 
+                  2*Power(Prho1y,2)*Power(Prho2x,2)*Power(Prho2z,2) + 
+                  2*Power(Prho1z,2)*Power(Prho2x,2)*Power(Prho2z,2) - 
+                  2*Power(Enu1,2)*Prho1y*Prho2y*Power(Prho2z,2) + 
+                  2*Power(Etau,2)*Prho1y*Prho2y*Power(Prho2z,2) - 
+                  2*Power(Mtau,2)*Prho1y*Prho2y*Power(Prho2z,2) - 
+                  2*Power(Prho1x,2)*Prho1y*Prho2y*Power(Prho2z,2) + 
+                  2*Power(Prho1y,3)*Prho2y*Power(Prho2z,2) + 
+                  2*Prho1y*Power(Prho1z,2)*Prho2y*Power(Prho2z,2) + 
+                  2*Power(Prho1y,2)*Power(Prho2y,2)*Power(Prho2z,2) + 
+                  2*Power(Prho1z,2)*Power(Prho2y,2)*Power(Prho2z,2) - 
+                  2*Power(Enu1,2)*Prho1z*Power(Prho2z,3) + 2*Power(Etau,2)*Prho1z*Power(Prho2z,3) - 
+                  2*Power(Mtau,2)*Prho1z*Power(Prho2z,3) - 2*Power(Prho1x,2)*Prho1z*Power(Prho2z,3) + 
+                  2*Power(Prho1y,2)*Prho1z*Power(Prho2z,3) + 2*Power(Prho1z,3)*Power(Prho2z,3) + 
+                  Power(Prho1y,2)*Power(Prho2z,4) + Power(Prho1z,2)*Power(Prho2z,4)))))/
+         (4*Power(Prho1y,2)*Power(Prho2x,2) + 4*Power(Prho1z,2)*Power(Prho2x,2) - 
+           8*Prho1x*Prho1y*Prho2x*Prho2y + 4*Power(Prho1x,2)*Power(Prho2y,2) + 
+           4*Power(Prho1z,2)*Power(Prho2y,2) - 8*Prho1x*Prho1z*Prho2x*Prho2z - 
+           8*Prho1y*Prho1z*Prho2y*Prho2z + 4*Power(Prho1x,2)*Power(Prho2z,2) + 
+           4*Power(Prho1y,2)*Power(Prho2z,2)) - 
+        (Prho1x*Prho2y*(4*Power(Enu2,2)*Power(Prho1y,2)*Prho2x - 
+             4*Power(Etau,2)*Power(Prho1y,2)*Prho2x + 4*Power(Mtau,2)*Power(Prho1y,2)*Prho2x + 
+             4*Power(Enu2,2)*Power(Prho1z,2)*Prho2x - 4*Power(Etau,2)*Power(Prho1z,2)*Prho2x + 
+             4*Power(Mtau,2)*Power(Prho1z,2)*Prho2x - 8*Prho1x*Power(Prho1y,2)*Power(Prho2x,2) - 
+             8*Prho1x*Power(Prho1z,2)*Power(Prho2x,2) - 4*Power(Prho1y,2)*Power(Prho2x,3) - 
+             4*Power(Prho1z,2)*Power(Prho2x,3) - 4*Power(Enu2,2)*Prho1x*Prho1y*Prho2y + 
+             4*Power(Etau,2)*Prho1x*Prho1y*Prho2y - 4*Power(Mtau,2)*Prho1x*Prho1y*Prho2y + 
+             4*Power(Enu1,2)*Prho1y*Prho2x*Prho2y - 4*Power(Etau,2)*Prho1y*Prho2x*Prho2y + 
+             4*Power(Mtau,2)*Prho1y*Prho2x*Prho2y + 12*Power(Prho1x,2)*Prho1y*Prho2x*Prho2y - 
+             4*Power(Prho1y,3)*Prho2x*Prho2y - 4*Prho1y*Power(Prho1z,2)*Prho2x*Prho2y + 
+             4*Prho1x*Prho1y*Power(Prho2x,2)*Prho2y - 4*Power(Enu1,2)*Prho1x*Power(Prho2y,2) + 
+             4*Power(Etau,2)*Prho1x*Power(Prho2y,2) - 4*Power(Mtau,2)*Prho1x*Power(Prho2y,2) - 
+             4*Power(Prho1x,3)*Power(Prho2y,2) + 4*Prho1x*Power(Prho1y,2)*Power(Prho2y,2) - 
+             4*Prho1x*Power(Prho1z,2)*Power(Prho2y,2) - 4*Power(Prho1y,2)*Prho2x*Power(Prho2y,2) - 
+             4*Power(Prho1z,2)*Prho2x*Power(Prho2y,2) + 4*Prho1x*Prho1y*Power(Prho2y,3) - 
+             4*Power(Enu2,2)*Prho1x*Prho1z*Prho2z + 4*Power(Etau,2)*Prho1x*Prho1z*Prho2z - 
+             4*Power(Mtau,2)*Prho1x*Prho1z*Prho2z + 4*Power(Enu1,2)*Prho1z*Prho2x*Prho2z - 
+             4*Power(Etau,2)*Prho1z*Prho2x*Prho2z + 4*Power(Mtau,2)*Prho1z*Prho2x*Prho2z + 
+             12*Power(Prho1x,2)*Prho1z*Prho2x*Prho2z - 4*Power(Prho1y,2)*Prho1z*Prho2x*Prho2z - 
+             4*Power(Prho1z,3)*Prho2x*Prho2z + 4*Prho1x*Prho1z*Power(Prho2x,2)*Prho2z + 
+             16*Prho1x*Prho1y*Prho1z*Prho2y*Prho2z + 4*Prho1x*Prho1z*Power(Prho2y,2)*Prho2z - 
+             4*Power(Enu1,2)*Prho1x*Power(Prho2z,2) + 4*Power(Etau,2)*Prho1x*Power(Prho2z,2) - 
+             4*Power(Mtau,2)*Prho1x*Power(Prho2z,2) - 4*Power(Prho1x,3)*Power(Prho2z,2) - 
+             4*Prho1x*Power(Prho1y,2)*Power(Prho2z,2) + 4*Prho1x*Power(Prho1z,2)*Power(Prho2z,2) - 
+             4*Power(Prho1y,2)*Prho2x*Power(Prho2z,2) - 4*Power(Prho1z,2)*Prho2x*Power(Prho2z,2) + 
+             4*Prho1x*Prho1y*Prho2y*Power(Prho2z,2) + 4*Prho1x*Prho1z*Power(Prho2z,3) - 
+             Sqrt(Power(-4*Power(Enu2,2)*Power(Prho1y,2)*Prho2x + 
+                 4*Power(Etau,2)*Power(Prho1y,2)*Prho2x - 4*Power(Mtau,2)*Power(Prho1y,2)*Prho2x - 
+                 4*Power(Enu2,2)*Power(Prho1z,2)*Prho2x + 4*Power(Etau,2)*Power(Prho1z,2)*Prho2x - 
+                 4*Power(Mtau,2)*Power(Prho1z,2)*Prho2x + 8*Prho1x*Power(Prho1y,2)*Power(Prho2x,2) + 
+                 8*Prho1x*Power(Prho1z,2)*Power(Prho2x,2) + 4*Power(Prho1y,2)*Power(Prho2x,3) + 
+                 4*Power(Prho1z,2)*Power(Prho2x,3) + 4*Power(Enu2,2)*Prho1x*Prho1y*Prho2y - 
+                 4*Power(Etau,2)*Prho1x*Prho1y*Prho2y + 4*Power(Mtau,2)*Prho1x*Prho1y*Prho2y - 
+                 4*Power(Enu1,2)*Prho1y*Prho2x*Prho2y + 4*Power(Etau,2)*Prho1y*Prho2x*Prho2y - 
+                 4*Power(Mtau,2)*Prho1y*Prho2x*Prho2y - 12*Power(Prho1x,2)*Prho1y*Prho2x*Prho2y + 
+                 4*Power(Prho1y,3)*Prho2x*Prho2y + 4*Prho1y*Power(Prho1z,2)*Prho2x*Prho2y - 
+                 4*Prho1x*Prho1y*Power(Prho2x,2)*Prho2y + 4*Power(Enu1,2)*Prho1x*Power(Prho2y,2) - 
+                 4*Power(Etau,2)*Prho1x*Power(Prho2y,2) + 4*Power(Mtau,2)*Prho1x*Power(Prho2y,2) + 
+                 4*Power(Prho1x,3)*Power(Prho2y,2) - 4*Prho1x*Power(Prho1y,2)*Power(Prho2y,2) + 
+                 4*Prho1x*Power(Prho1z,2)*Power(Prho2y,2) + 4*Power(Prho1y,2)*Prho2x*Power(Prho2y,2) + 
+                 4*Power(Prho1z,2)*Prho2x*Power(Prho2y,2) - 4*Prho1x*Prho1y*Power(Prho2y,3) + 
+                 4*Power(Enu2,2)*Prho1x*Prho1z*Prho2z - 4*Power(Etau,2)*Prho1x*Prho1z*Prho2z + 
+                 4*Power(Mtau,2)*Prho1x*Prho1z*Prho2z - 4*Power(Enu1,2)*Prho1z*Prho2x*Prho2z + 
+                 4*Power(Etau,2)*Prho1z*Prho2x*Prho2z - 4*Power(Mtau,2)*Prho1z*Prho2x*Prho2z - 
+                 12*Power(Prho1x,2)*Prho1z*Prho2x*Prho2z + 4*Power(Prho1y,2)*Prho1z*Prho2x*Prho2z + 
+                 4*Power(Prho1z,3)*Prho2x*Prho2z - 4*Prho1x*Prho1z*Power(Prho2x,2)*Prho2z - 
+                 16*Prho1x*Prho1y*Prho1z*Prho2y*Prho2z - 4*Prho1x*Prho1z*Power(Prho2y,2)*Prho2z + 
+                 4*Power(Enu1,2)*Prho1x*Power(Prho2z,2) - 4*Power(Etau,2)*Prho1x*Power(Prho2z,2) + 
+                 4*Power(Mtau,2)*Prho1x*Power(Prho2z,2) + 4*Power(Prho1x,3)*Power(Prho2z,2) + 
+                 4*Prho1x*Power(Prho1y,2)*Power(Prho2z,2) - 4*Prho1x*Power(Prho1z,2)*Power(Prho2z,2) + 
+                 4*Power(Prho1y,2)*Prho2x*Power(Prho2z,2) + 4*Power(Prho1z,2)*Prho2x*Power(Prho2z,2) - 
+                 4*Prho1x*Prho1y*Prho2y*Power(Prho2z,2) - 4*Prho1x*Prho1z*Power(Prho2z,3),2) - 
+               4*(4*Power(Prho1y,2)*Power(Prho2x,2) + 4*Power(Prho1z,2)*Power(Prho2x,2) - 
+                  8*Prho1x*Prho1y*Prho2x*Prho2y + 4*Power(Prho1x,2)*Power(Prho2y,2) + 
+                  4*Power(Prho1z,2)*Power(Prho2y,2) - 8*Prho1x*Prho1z*Prho2x*Prho2z - 
+                  8*Prho1y*Prho1z*Prho2y*Prho2z + 4*Power(Prho1x,2)*Power(Prho2z,2) + 
+                  4*Power(Prho1y,2)*Power(Prho2z,2))*
+                (Power(Enu2,4)*Power(Prho1y,2) - 2*Power(Enu2,2)*Power(Etau,2)*Power(Prho1y,2) + 
+                  Power(Etau,4)*Power(Prho1y,2) + 2*Power(Enu2,2)*Power(Mtau,2)*Power(Prho1y,2) - 
+                  2*Power(Etau,2)*Power(Mtau,2)*Power(Prho1y,2) + Power(Mtau,4)*Power(Prho1y,2) + 
+                  Power(Enu2,4)*Power(Prho1z,2) - 2*Power(Enu2,2)*Power(Etau,2)*Power(Prho1z,2) + 
+                  Power(Etau,4)*Power(Prho1z,2) + 2*Power(Enu2,2)*Power(Mtau,2)*Power(Prho1z,2) - 
+                  2*Power(Etau,2)*Power(Mtau,2)*Power(Prho1z,2) + Power(Mtau,4)*Power(Prho1z,2) - 
+                  4*Power(Enu2,2)*Prho1x*Power(Prho1y,2)*Prho2x + 
+                  4*Power(Etau,2)*Prho1x*Power(Prho1y,2)*Prho2x - 
+                  4*Power(Mtau,2)*Prho1x*Power(Prho1y,2)*Prho2x - 
+                  4*Power(Enu2,2)*Prho1x*Power(Prho1z,2)*Prho2x + 
+                  4*Power(Etau,2)*Prho1x*Power(Prho1z,2)*Prho2x - 
+                  4*Power(Mtau,2)*Prho1x*Power(Prho1z,2)*Prho2x - 
+                  2*Power(Enu2,2)*Power(Prho1y,2)*Power(Prho2x,2) + 
+                  2*Power(Etau,2)*Power(Prho1y,2)*Power(Prho2x,2) - 
+                  2*Power(Mtau,2)*Power(Prho1y,2)*Power(Prho2x,2) + 
+                  4*Power(Prho1x,2)*Power(Prho1y,2)*Power(Prho2x,2) - 
+                  2*Power(Enu2,2)*Power(Prho1z,2)*Power(Prho2x,2) + 
+                  2*Power(Etau,2)*Power(Prho1z,2)*Power(Prho2x,2) - 
+                  2*Power(Mtau,2)*Power(Prho1z,2)*Power(Prho2x,2) + 
+                  4*Power(Prho1x,2)*Power(Prho1z,2)*Power(Prho2x,2) + 
+                  4*Prho1x*Power(Prho1y,2)*Power(Prho2x,3) + 
+                  4*Prho1x*Power(Prho1z,2)*Power(Prho2x,3) + Power(Prho1y,2)*Power(Prho2x,4) + 
+                  Power(Prho1z,2)*Power(Prho2x,4) + 2*Power(Enu1,2)*Power(Enu2,2)*Prho1y*Prho2y - 
+                  2*Power(Enu1,2)*Power(Etau,2)*Prho1y*Prho2y - 
+                  2*Power(Enu2,2)*Power(Etau,2)*Prho1y*Prho2y + 2*Power(Etau,4)*Prho1y*Prho2y + 
+                  2*Power(Enu1,2)*Power(Mtau,2)*Prho1y*Prho2y + 
+                  2*Power(Enu2,2)*Power(Mtau,2)*Prho1y*Prho2y - 
+                  4*Power(Etau,2)*Power(Mtau,2)*Prho1y*Prho2y + 2*Power(Mtau,4)*Prho1y*Prho2y + 
+                  2*Power(Enu2,2)*Power(Prho1x,2)*Prho1y*Prho2y - 
+                  2*Power(Etau,2)*Power(Prho1x,2)*Prho1y*Prho2y + 
+                  2*Power(Mtau,2)*Power(Prho1x,2)*Prho1y*Prho2y - 
+                  2*Power(Enu2,2)*Power(Prho1y,3)*Prho2y + 2*Power(Etau,2)*Power(Prho1y,3)*Prho2y - 
+                  2*Power(Mtau,2)*Power(Prho1y,3)*Prho2y - 
+                  2*Power(Enu2,2)*Prho1y*Power(Prho1z,2)*Prho2y + 
+                  2*Power(Etau,2)*Prho1y*Power(Prho1z,2)*Prho2y - 
+                  2*Power(Mtau,2)*Prho1y*Power(Prho1z,2)*Prho2y - 
+                  4*Power(Enu1,2)*Prho1x*Prho1y*Prho2x*Prho2y + 
+                  4*Power(Etau,2)*Prho1x*Prho1y*Prho2x*Prho2y - 
+                  4*Power(Mtau,2)*Prho1x*Prho1y*Prho2x*Prho2y - 
+                  4*Power(Prho1x,3)*Prho1y*Prho2x*Prho2y + 4*Prho1x*Power(Prho1y,3)*Prho2x*Prho2y + 
+                  4*Prho1x*Prho1y*Power(Prho1z,2)*Prho2x*Prho2y - 
+                  2*Power(Enu1,2)*Prho1y*Power(Prho2x,2)*Prho2y + 
+                  2*Power(Etau,2)*Prho1y*Power(Prho2x,2)*Prho2y - 
+                  2*Power(Mtau,2)*Prho1y*Power(Prho2x,2)*Prho2y - 
+                  2*Power(Prho1x,2)*Prho1y*Power(Prho2x,2)*Prho2y + 
+                  2*Power(Prho1y,3)*Power(Prho2x,2)*Prho2y + 
+                  2*Prho1y*Power(Prho1z,2)*Power(Prho2x,2)*Prho2y + Power(Enu1,4)*Power(Prho2y,2) - 
+                  2*Power(Enu1,2)*Power(Etau,2)*Power(Prho2y,2) + Power(Etau,4)*Power(Prho2y,2) + 
+                  2*Power(Enu1,2)*Power(Mtau,2)*Power(Prho2y,2) - 
+                  2*Power(Etau,2)*Power(Mtau,2)*Power(Prho2y,2) + Power(Mtau,4)*Power(Prho2y,2) + 
+                  2*Power(Enu1,2)*Power(Prho1x,2)*Power(Prho2y,2) - 
+                  2*Power(Etau,2)*Power(Prho1x,2)*Power(Prho2y,2) + 
+                  2*Power(Mtau,2)*Power(Prho1x,2)*Power(Prho2y,2) + Power(Prho1x,4)*Power(Prho2y,2) - 
+                  2*Power(Enu1,2)*Power(Prho1y,2)*Power(Prho2y,2) - 
+                  2*Power(Enu2,2)*Power(Prho1y,2)*Power(Prho2y,2) + 
+                  4*Power(Etau,2)*Power(Prho1y,2)*Power(Prho2y,2) - 
+                  4*Power(Mtau,2)*Power(Prho1y,2)*Power(Prho2y,2) - 
+                  2*Power(Prho1x,2)*Power(Prho1y,2)*Power(Prho2y,2) + 
+                  Power(Prho1y,4)*Power(Prho2y,2) - 2*Power(Enu1,2)*Power(Prho1z,2)*Power(Prho2y,2) - 
+                  2*Power(Enu2,2)*Power(Prho1z,2)*Power(Prho2y,2) + 
+                  2*Power(Prho1x,2)*Power(Prho1z,2)*Power(Prho2y,2) + 
+                  2*Power(Prho1y,2)*Power(Prho1z,2)*Power(Prho2y,2) + 
+                  Power(Prho1z,4)*Power(Prho2y,2) + 4*Prho1x*Power(Prho1y,2)*Prho2x*Power(Prho2y,2) + 
+                  4*Prho1x*Power(Prho1z,2)*Prho2x*Power(Prho2y,2) + 
+                  2*Power(Prho1y,2)*Power(Prho2x,2)*Power(Prho2y,2) + 
+                  2*Power(Prho1z,2)*Power(Prho2x,2)*Power(Prho2y,2) - 
+                  2*Power(Enu1,2)*Prho1y*Power(Prho2y,3) + 2*Power(Etau,2)*Prho1y*Power(Prho2y,3) - 
+                  2*Power(Mtau,2)*Prho1y*Power(Prho2y,3) - 2*Power(Prho1x,2)*Prho1y*Power(Prho2y,3) + 
+                  2*Power(Prho1y,3)*Power(Prho2y,3) + 2*Prho1y*Power(Prho1z,2)*Power(Prho2y,3) + 
+                  Power(Prho1y,2)*Power(Prho2y,4) + Power(Prho1z,2)*Power(Prho2y,4) + 
+                  2*Power(Enu1,2)*Power(Enu2,2)*Prho1z*Prho2z - 
+                  2*Power(Enu1,2)*Power(Etau,2)*Prho1z*Prho2z - 
+                  2*Power(Enu2,2)*Power(Etau,2)*Prho1z*Prho2z + 2*Power(Etau,4)*Prho1z*Prho2z + 
+                  2*Power(Enu1,2)*Power(Mtau,2)*Prho1z*Prho2z + 
+                  2*Power(Enu2,2)*Power(Mtau,2)*Prho1z*Prho2z - 
+                  4*Power(Etau,2)*Power(Mtau,2)*Prho1z*Prho2z + 2*Power(Mtau,4)*Prho1z*Prho2z + 
+                  2*Power(Enu2,2)*Power(Prho1x,2)*Prho1z*Prho2z - 
+                  2*Power(Etau,2)*Power(Prho1x,2)*Prho1z*Prho2z + 
+                  2*Power(Mtau,2)*Power(Prho1x,2)*Prho1z*Prho2z - 
+                  2*Power(Enu2,2)*Power(Prho1y,2)*Prho1z*Prho2z + 
+                  2*Power(Etau,2)*Power(Prho1y,2)*Prho1z*Prho2z - 
+                  2*Power(Mtau,2)*Power(Prho1y,2)*Prho1z*Prho2z - 
+                  2*Power(Enu2,2)*Power(Prho1z,3)*Prho2z + 2*Power(Etau,2)*Power(Prho1z,3)*Prho2z - 
+                  2*Power(Mtau,2)*Power(Prho1z,3)*Prho2z - 
+                  4*Power(Enu1,2)*Prho1x*Prho1z*Prho2x*Prho2z + 
+                  4*Power(Etau,2)*Prho1x*Prho1z*Prho2x*Prho2z - 
+                  4*Power(Mtau,2)*Prho1x*Prho1z*Prho2x*Prho2z - 
+                  4*Power(Prho1x,3)*Prho1z*Prho2x*Prho2z + 
+                  4*Prho1x*Power(Prho1y,2)*Prho1z*Prho2x*Prho2z + 
+                  4*Prho1x*Power(Prho1z,3)*Prho2x*Prho2z - 
+                  2*Power(Enu1,2)*Prho1z*Power(Prho2x,2)*Prho2z + 
+                  2*Power(Etau,2)*Prho1z*Power(Prho2x,2)*Prho2z - 
+                  2*Power(Mtau,2)*Prho1z*Power(Prho2x,2)*Prho2z - 
+                  2*Power(Prho1x,2)*Prho1z*Power(Prho2x,2)*Prho2z + 
+                  2*Power(Prho1y,2)*Prho1z*Power(Prho2x,2)*Prho2z + 
+                  2*Power(Prho1z,3)*Power(Prho2x,2)*Prho2z + 
+                  8*Power(Etau,2)*Prho1y*Prho1z*Prho2y*Prho2z - 
+                  8*Power(Mtau,2)*Prho1y*Prho1z*Prho2y*Prho2z - 
+                  8*Power(Prho1x,2)*Prho1y*Prho1z*Prho2y*Prho2z - 
+                  2*Power(Enu1,2)*Prho1z*Power(Prho2y,2)*Prho2z + 
+                  2*Power(Etau,2)*Prho1z*Power(Prho2y,2)*Prho2z - 
+                  2*Power(Mtau,2)*Prho1z*Power(Prho2y,2)*Prho2z - 
+                  2*Power(Prho1x,2)*Prho1z*Power(Prho2y,2)*Prho2z + 
+                  2*Power(Prho1y,2)*Prho1z*Power(Prho2y,2)*Prho2z + 
+                  2*Power(Prho1z,3)*Power(Prho2y,2)*Prho2z + Power(Enu1,4)*Power(Prho2z,2) - 
+                  2*Power(Enu1,2)*Power(Etau,2)*Power(Prho2z,2) + Power(Etau,4)*Power(Prho2z,2) + 
+                  2*Power(Enu1,2)*Power(Mtau,2)*Power(Prho2z,2) - 
+                  2*Power(Etau,2)*Power(Mtau,2)*Power(Prho2z,2) + Power(Mtau,4)*Power(Prho2z,2) + 
+                  2*Power(Enu1,2)*Power(Prho1x,2)*Power(Prho2z,2) - 
+                  2*Power(Etau,2)*Power(Prho1x,2)*Power(Prho2z,2) + 
+                  2*Power(Mtau,2)*Power(Prho1x,2)*Power(Prho2z,2) + Power(Prho1x,4)*Power(Prho2z,2) - 
+                  2*Power(Enu1,2)*Power(Prho1y,2)*Power(Prho2z,2) - 
+                  2*Power(Enu2,2)*Power(Prho1y,2)*Power(Prho2z,2) + 
+                  2*Power(Prho1x,2)*Power(Prho1y,2)*Power(Prho2z,2) + 
+                  Power(Prho1y,4)*Power(Prho2z,2) - 2*Power(Enu1,2)*Power(Prho1z,2)*Power(Prho2z,2) - 
+                  2*Power(Enu2,2)*Power(Prho1z,2)*Power(Prho2z,2) + 
+                  4*Power(Etau,2)*Power(Prho1z,2)*Power(Prho2z,2) - 
+                  4*Power(Mtau,2)*Power(Prho1z,2)*Power(Prho2z,2) - 
+                  2*Power(Prho1x,2)*Power(Prho1z,2)*Power(Prho2z,2) + 
+                  2*Power(Prho1y,2)*Power(Prho1z,2)*Power(Prho2z,2) + 
+                  Power(Prho1z,4)*Power(Prho2z,2) + 4*Prho1x*Power(Prho1y,2)*Prho2x*Power(Prho2z,2) + 
+                  4*Prho1x*Power(Prho1z,2)*Prho2x*Power(Prho2z,2) + 
+                  2*Power(Prho1y,2)*Power(Prho2x,2)*Power(Prho2z,2) + 
+                  2*Power(Prho1z,2)*Power(Prho2x,2)*Power(Prho2z,2) - 
+                  2*Power(Enu1,2)*Prho1y*Prho2y*Power(Prho2z,2) + 
+                  2*Power(Etau,2)*Prho1y*Prho2y*Power(Prho2z,2) - 
+                  2*Power(Mtau,2)*Prho1y*Prho2y*Power(Prho2z,2) - 
+                  2*Power(Prho1x,2)*Prho1y*Prho2y*Power(Prho2z,2) + 
+                  2*Power(Prho1y,3)*Prho2y*Power(Prho2z,2) + 
+                  2*Prho1y*Power(Prho1z,2)*Prho2y*Power(Prho2z,2) + 
+                  2*Power(Prho1y,2)*Power(Prho2y,2)*Power(Prho2z,2) + 
+                  2*Power(Prho1z,2)*Power(Prho2y,2)*Power(Prho2z,2) - 
+                  2*Power(Enu1,2)*Prho1z*Power(Prho2z,3) + 2*Power(Etau,2)*Prho1z*Power(Prho2z,3) - 
+                  2*Power(Mtau,2)*Prho1z*Power(Prho2z,3) - 2*Power(Prho1x,2)*Prho1z*Power(Prho2z,3) + 
+                  2*Power(Prho1y,2)*Prho1z*Power(Prho2z,3) + 2*Power(Prho1z,3)*Power(Prho2z,3) + 
+                  Power(Prho1y,2)*Power(Prho2z,4) + Power(Prho1z,2)*Power(Prho2z,4)))))/
+         (4*Power(Prho1y,2)*Power(Prho2x,2) + 4*Power(Prho1z,2)*Power(Prho2x,2) - 
+           8*Prho1x*Prho1y*Prho2x*Prho2y + 4*Power(Prho1x,2)*Power(Prho2y,2) + 
+           4*Power(Prho1z,2)*Power(Prho2y,2) - 8*Prho1x*Prho1z*Prho2x*Prho2z - 
+           8*Prho1y*Prho1z*Prho2y*Prho2z + 4*Power(Prho1x,2)*Power(Prho2z,2) + 
+           4*Power(Prho1y,2)*Power(Prho2z,2)))/(2*Prho1z*Prho2y - 2*Prho1y*Prho2z);
+
+    TLorentzVector vNeutrino1;
+    vNeutrino1.SetPxPyPzE(Px,Py,Pz,Enu1);
+
+    vNeutrino1.Boost(v3Higgs);
+
+    return vNeutrino1;
+}
+
+/* 
+ * FUNCTION FOR GETTING THE 4-MOMENTUM OF THE FIRST NEUTRINO (SOLUTION 2)
+ */
+
+TLorentzVector getNeut1Sol2(TLorentzVector vZ, TLorentzVector vInit, TLorentzVector vRho1, TLorentzVector vRho2){
+
+    TLorentzVector vHiggs = vInit - vZ;
+
+    TVector3 v3Higgs;
+    v3Higgs.SetXYZ(vHiggs.Px()/vHiggs.E(), vHiggs.Py()/vHiggs.E(), vHiggs.Pz()/vHiggs.E());
+
+    // Boost vectors to Higgs frame
+    vHiggs.Boost(-v3Higgs);
+    vRho1.Boost(-v3Higgs);
+    vRho2.Boost(-v3Higgs);
+
+    Double_t Etau = vHiggs.E()/2, Mtau = 1.77682;
+
+    Double_t Prho1x = vRho1.X(), Prho1y = vRho1.Y(), Prho1z = vRho1.Z();
+    Double_t Prho2x = vRho2.X(), Prho2y = vRho2.Y(), Prho2z = vRho2.Z();
+
+    Double_t Enu1 = Etau - vRho1.E(), Enu2 = Etau - vRho2.E();
+
+    Double_t Px = (4*Power(Enu2,2)*Power(Prho1y,2)*Prho2x - 4*Power(Etau,2)*Power(Prho1y,2)*Prho2x + 
+        4*Power(Mtau,2)*Power(Prho1y,2)*Prho2x + 4*Power(Enu2,2)*Power(Prho1z,2)*Prho2x - 
+        4*Power(Etau,2)*Power(Prho1z,2)*Prho2x + 4*Power(Mtau,2)*Power(Prho1z,2)*Prho2x - 
+        8*Prho1x*Power(Prho1y,2)*Power(Prho2x,2) - 8*Prho1x*Power(Prho1z,2)*Power(Prho2x,2) - 
+        4*Power(Prho1y,2)*Power(Prho2x,3) - 4*Power(Prho1z,2)*Power(Prho2x,3) - 
+        4*Power(Enu2,2)*Prho1x*Prho1y*Prho2y + 4*Power(Etau,2)*Prho1x*Prho1y*Prho2y - 
+        4*Power(Mtau,2)*Prho1x*Prho1y*Prho2y + 4*Power(Enu1,2)*Prho1y*Prho2x*Prho2y - 
+        4*Power(Etau,2)*Prho1y*Prho2x*Prho2y + 4*Power(Mtau,2)*Prho1y*Prho2x*Prho2y + 
+        12*Power(Prho1x,2)*Prho1y*Prho2x*Prho2y - 4*Power(Prho1y,3)*Prho2x*Prho2y - 
+        4*Prho1y*Power(Prho1z,2)*Prho2x*Prho2y + 4*Prho1x*Prho1y*Power(Prho2x,2)*Prho2y - 
+        4*Power(Enu1,2)*Prho1x*Power(Prho2y,2) + 4*Power(Etau,2)*Prho1x*Power(Prho2y,2) - 
+        4*Power(Mtau,2)*Prho1x*Power(Prho2y,2) - 4*Power(Prho1x,3)*Power(Prho2y,2) + 
+        4*Prho1x*Power(Prho1y,2)*Power(Prho2y,2) - 4*Prho1x*Power(Prho1z,2)*Power(Prho2y,2) - 
+        4*Power(Prho1y,2)*Prho2x*Power(Prho2y,2) - 4*Power(Prho1z,2)*Prho2x*Power(Prho2y,2) + 
+        4*Prho1x*Prho1y*Power(Prho2y,3) - 4*Power(Enu2,2)*Prho1x*Prho1z*Prho2z + 
+        4*Power(Etau,2)*Prho1x*Prho1z*Prho2z - 4*Power(Mtau,2)*Prho1x*Prho1z*Prho2z + 
+        4*Power(Enu1,2)*Prho1z*Prho2x*Prho2z - 4*Power(Etau,2)*Prho1z*Prho2x*Prho2z + 
+        4*Power(Mtau,2)*Prho1z*Prho2x*Prho2z + 12*Power(Prho1x,2)*Prho1z*Prho2x*Prho2z - 
+        4*Power(Prho1y,2)*Prho1z*Prho2x*Prho2z - 4*Power(Prho1z,3)*Prho2x*Prho2z + 
+        4*Prho1x*Prho1z*Power(Prho2x,2)*Prho2z + 16*Prho1x*Prho1y*Prho1z*Prho2y*Prho2z + 
+        4*Prho1x*Prho1z*Power(Prho2y,2)*Prho2z - 4*Power(Enu1,2)*Prho1x*Power(Prho2z,2) + 
+        4*Power(Etau,2)*Prho1x*Power(Prho2z,2) - 4*Power(Mtau,2)*Prho1x*Power(Prho2z,2) - 
+        4*Power(Prho1x,3)*Power(Prho2z,2) - 4*Prho1x*Power(Prho1y,2)*Power(Prho2z,2) + 
+        4*Prho1x*Power(Prho1z,2)*Power(Prho2z,2) - 4*Power(Prho1y,2)*Prho2x*Power(Prho2z,2) - 
+        4*Power(Prho1z,2)*Prho2x*Power(Prho2z,2) + 4*Prho1x*Prho1y*Prho2y*Power(Prho2z,2) + 
+        4*Prho1x*Prho1z*Power(Prho2z,3) + 
+        Sqrt(Power(-4*Power(Enu2,2)*Power(Prho1y,2)*Prho2x + 4*Power(Etau,2)*Power(Prho1y,2)*Prho2x - 
+            4*Power(Mtau,2)*Power(Prho1y,2)*Prho2x - 4*Power(Enu2,2)*Power(Prho1z,2)*Prho2x + 
+            4*Power(Etau,2)*Power(Prho1z,2)*Prho2x - 4*Power(Mtau,2)*Power(Prho1z,2)*Prho2x + 
+            8*Prho1x*Power(Prho1y,2)*Power(Prho2x,2) + 8*Prho1x*Power(Prho1z,2)*Power(Prho2x,2) + 
+            4*Power(Prho1y,2)*Power(Prho2x,3) + 4*Power(Prho1z,2)*Power(Prho2x,3) + 
+            4*Power(Enu2,2)*Prho1x*Prho1y*Prho2y - 4*Power(Etau,2)*Prho1x*Prho1y*Prho2y + 
+            4*Power(Mtau,2)*Prho1x*Prho1y*Prho2y - 4*Power(Enu1,2)*Prho1y*Prho2x*Prho2y + 
+            4*Power(Etau,2)*Prho1y*Prho2x*Prho2y - 4*Power(Mtau,2)*Prho1y*Prho2x*Prho2y - 
+            12*Power(Prho1x,2)*Prho1y*Prho2x*Prho2y + 4*Power(Prho1y,3)*Prho2x*Prho2y + 
+            4*Prho1y*Power(Prho1z,2)*Prho2x*Prho2y - 4*Prho1x*Prho1y*Power(Prho2x,2)*Prho2y + 
+            4*Power(Enu1,2)*Prho1x*Power(Prho2y,2) - 4*Power(Etau,2)*Prho1x*Power(Prho2y,2) + 
+            4*Power(Mtau,2)*Prho1x*Power(Prho2y,2) + 4*Power(Prho1x,3)*Power(Prho2y,2) - 
+            4*Prho1x*Power(Prho1y,2)*Power(Prho2y,2) + 4*Prho1x*Power(Prho1z,2)*Power(Prho2y,2) + 
+            4*Power(Prho1y,2)*Prho2x*Power(Prho2y,2) + 4*Power(Prho1z,2)*Prho2x*Power(Prho2y,2) - 
+            4*Prho1x*Prho1y*Power(Prho2y,3) + 4*Power(Enu2,2)*Prho1x*Prho1z*Prho2z - 
+            4*Power(Etau,2)*Prho1x*Prho1z*Prho2z + 4*Power(Mtau,2)*Prho1x*Prho1z*Prho2z - 
+            4*Power(Enu1,2)*Prho1z*Prho2x*Prho2z + 4*Power(Etau,2)*Prho1z*Prho2x*Prho2z - 
+            4*Power(Mtau,2)*Prho1z*Prho2x*Prho2z - 12*Power(Prho1x,2)*Prho1z*Prho2x*Prho2z + 
+            4*Power(Prho1y,2)*Prho1z*Prho2x*Prho2z + 4*Power(Prho1z,3)*Prho2x*Prho2z - 
+            4*Prho1x*Prho1z*Power(Prho2x,2)*Prho2z - 16*Prho1x*Prho1y*Prho1z*Prho2y*Prho2z - 
+            4*Prho1x*Prho1z*Power(Prho2y,2)*Prho2z + 4*Power(Enu1,2)*Prho1x*Power(Prho2z,2) - 
+            4*Power(Etau,2)*Prho1x*Power(Prho2z,2) + 4*Power(Mtau,2)*Prho1x*Power(Prho2z,2) + 
+            4*Power(Prho1x,3)*Power(Prho2z,2) + 4*Prho1x*Power(Prho1y,2)*Power(Prho2z,2) - 
+            4*Prho1x*Power(Prho1z,2)*Power(Prho2z,2) + 4*Power(Prho1y,2)*Prho2x*Power(Prho2z,2) + 
+            4*Power(Prho1z,2)*Prho2x*Power(Prho2z,2) - 4*Prho1x*Prho1y*Prho2y*Power(Prho2z,2) - 
+            4*Prho1x*Prho1z*Power(Prho2z,3),2) - 
+          4*(4*Power(Prho1y,2)*Power(Prho2x,2) + 4*Power(Prho1z,2)*Power(Prho2x,2) - 
+             8*Prho1x*Prho1y*Prho2x*Prho2y + 4*Power(Prho1x,2)*Power(Prho2y,2) + 
+             4*Power(Prho1z,2)*Power(Prho2y,2) - 8*Prho1x*Prho1z*Prho2x*Prho2z - 
+             8*Prho1y*Prho1z*Prho2y*Prho2z + 4*Power(Prho1x,2)*Power(Prho2z,2) + 
+             4*Power(Prho1y,2)*Power(Prho2z,2))*
+           (Power(Enu2,4)*Power(Prho1y,2) - 2*Power(Enu2,2)*Power(Etau,2)*Power(Prho1y,2) + 
+             Power(Etau,4)*Power(Prho1y,2) + 2*Power(Enu2,2)*Power(Mtau,2)*Power(Prho1y,2) - 
+             2*Power(Etau,2)*Power(Mtau,2)*Power(Prho1y,2) + Power(Mtau,4)*Power(Prho1y,2) + 
+             Power(Enu2,4)*Power(Prho1z,2) - 2*Power(Enu2,2)*Power(Etau,2)*Power(Prho1z,2) + 
+             Power(Etau,4)*Power(Prho1z,2) + 2*Power(Enu2,2)*Power(Mtau,2)*Power(Prho1z,2) - 
+             2*Power(Etau,2)*Power(Mtau,2)*Power(Prho1z,2) + Power(Mtau,4)*Power(Prho1z,2) - 
+             4*Power(Enu2,2)*Prho1x*Power(Prho1y,2)*Prho2x + 
+             4*Power(Etau,2)*Prho1x*Power(Prho1y,2)*Prho2x - 
+             4*Power(Mtau,2)*Prho1x*Power(Prho1y,2)*Prho2x - 
+             4*Power(Enu2,2)*Prho1x*Power(Prho1z,2)*Prho2x + 
+             4*Power(Etau,2)*Prho1x*Power(Prho1z,2)*Prho2x - 
+             4*Power(Mtau,2)*Prho1x*Power(Prho1z,2)*Prho2x - 
+             2*Power(Enu2,2)*Power(Prho1y,2)*Power(Prho2x,2) + 
+             2*Power(Etau,2)*Power(Prho1y,2)*Power(Prho2x,2) - 
+             2*Power(Mtau,2)*Power(Prho1y,2)*Power(Prho2x,2) + 
+             4*Power(Prho1x,2)*Power(Prho1y,2)*Power(Prho2x,2) - 
+             2*Power(Enu2,2)*Power(Prho1z,2)*Power(Prho2x,2) + 
+             2*Power(Etau,2)*Power(Prho1z,2)*Power(Prho2x,2) - 
+             2*Power(Mtau,2)*Power(Prho1z,2)*Power(Prho2x,2) + 
+             4*Power(Prho1x,2)*Power(Prho1z,2)*Power(Prho2x,2) + 
+             4*Prho1x*Power(Prho1y,2)*Power(Prho2x,3) + 4*Prho1x*Power(Prho1z,2)*Power(Prho2x,3) + 
+             Power(Prho1y,2)*Power(Prho2x,4) + Power(Prho1z,2)*Power(Prho2x,4) + 
+             2*Power(Enu1,2)*Power(Enu2,2)*Prho1y*Prho2y - 
+             2*Power(Enu1,2)*Power(Etau,2)*Prho1y*Prho2y - 
+             2*Power(Enu2,2)*Power(Etau,2)*Prho1y*Prho2y + 2*Power(Etau,4)*Prho1y*Prho2y + 
+             2*Power(Enu1,2)*Power(Mtau,2)*Prho1y*Prho2y + 
+             2*Power(Enu2,2)*Power(Mtau,2)*Prho1y*Prho2y - 
+             4*Power(Etau,2)*Power(Mtau,2)*Prho1y*Prho2y + 2*Power(Mtau,4)*Prho1y*Prho2y + 
+             2*Power(Enu2,2)*Power(Prho1x,2)*Prho1y*Prho2y - 
+             2*Power(Etau,2)*Power(Prho1x,2)*Prho1y*Prho2y + 
+             2*Power(Mtau,2)*Power(Prho1x,2)*Prho1y*Prho2y - 2*Power(Enu2,2)*Power(Prho1y,3)*Prho2y + 
+             2*Power(Etau,2)*Power(Prho1y,3)*Prho2y - 2*Power(Mtau,2)*Power(Prho1y,3)*Prho2y - 
+             2*Power(Enu2,2)*Prho1y*Power(Prho1z,2)*Prho2y + 
+             2*Power(Etau,2)*Prho1y*Power(Prho1z,2)*Prho2y - 
+             2*Power(Mtau,2)*Prho1y*Power(Prho1z,2)*Prho2y - 
+             4*Power(Enu1,2)*Prho1x*Prho1y*Prho2x*Prho2y + 
+             4*Power(Etau,2)*Prho1x*Prho1y*Prho2x*Prho2y - 
+             4*Power(Mtau,2)*Prho1x*Prho1y*Prho2x*Prho2y - 4*Power(Prho1x,3)*Prho1y*Prho2x*Prho2y + 
+             4*Prho1x*Power(Prho1y,3)*Prho2x*Prho2y + 4*Prho1x*Prho1y*Power(Prho1z,2)*Prho2x*Prho2y - 
+             2*Power(Enu1,2)*Prho1y*Power(Prho2x,2)*Prho2y + 
+             2*Power(Etau,2)*Prho1y*Power(Prho2x,2)*Prho2y - 
+             2*Power(Mtau,2)*Prho1y*Power(Prho2x,2)*Prho2y - 
+             2*Power(Prho1x,2)*Prho1y*Power(Prho2x,2)*Prho2y + 
+             2*Power(Prho1y,3)*Power(Prho2x,2)*Prho2y + 
+             2*Prho1y*Power(Prho1z,2)*Power(Prho2x,2)*Prho2y + Power(Enu1,4)*Power(Prho2y,2) - 
+             2*Power(Enu1,2)*Power(Etau,2)*Power(Prho2y,2) + Power(Etau,4)*Power(Prho2y,2) + 
+             2*Power(Enu1,2)*Power(Mtau,2)*Power(Prho2y,2) - 
+             2*Power(Etau,2)*Power(Mtau,2)*Power(Prho2y,2) + Power(Mtau,4)*Power(Prho2y,2) + 
+             2*Power(Enu1,2)*Power(Prho1x,2)*Power(Prho2y,2) - 
+             2*Power(Etau,2)*Power(Prho1x,2)*Power(Prho2y,2) + 
+             2*Power(Mtau,2)*Power(Prho1x,2)*Power(Prho2y,2) + Power(Prho1x,4)*Power(Prho2y,2) - 
+             2*Power(Enu1,2)*Power(Prho1y,2)*Power(Prho2y,2) - 
+             2*Power(Enu2,2)*Power(Prho1y,2)*Power(Prho2y,2) + 
+             4*Power(Etau,2)*Power(Prho1y,2)*Power(Prho2y,2) - 
+             4*Power(Mtau,2)*Power(Prho1y,2)*Power(Prho2y,2) - 
+             2*Power(Prho1x,2)*Power(Prho1y,2)*Power(Prho2y,2) + Power(Prho1y,4)*Power(Prho2y,2) - 
+             2*Power(Enu1,2)*Power(Prho1z,2)*Power(Prho2y,2) - 
+             2*Power(Enu2,2)*Power(Prho1z,2)*Power(Prho2y,2) + 
+             2*Power(Prho1x,2)*Power(Prho1z,2)*Power(Prho2y,2) + 
+             2*Power(Prho1y,2)*Power(Prho1z,2)*Power(Prho2y,2) + Power(Prho1z,4)*Power(Prho2y,2) + 
+             4*Prho1x*Power(Prho1y,2)*Prho2x*Power(Prho2y,2) + 
+             4*Prho1x*Power(Prho1z,2)*Prho2x*Power(Prho2y,2) + 
+             2*Power(Prho1y,2)*Power(Prho2x,2)*Power(Prho2y,2) + 
+             2*Power(Prho1z,2)*Power(Prho2x,2)*Power(Prho2y,2) - 
+             2*Power(Enu1,2)*Prho1y*Power(Prho2y,3) + 2*Power(Etau,2)*Prho1y*Power(Prho2y,3) - 
+             2*Power(Mtau,2)*Prho1y*Power(Prho2y,3) - 2*Power(Prho1x,2)*Prho1y*Power(Prho2y,3) + 
+             2*Power(Prho1y,3)*Power(Prho2y,3) + 2*Prho1y*Power(Prho1z,2)*Power(Prho2y,3) + 
+             Power(Prho1y,2)*Power(Prho2y,4) + Power(Prho1z,2)*Power(Prho2y,4) + 
+             2*Power(Enu1,2)*Power(Enu2,2)*Prho1z*Prho2z - 
+             2*Power(Enu1,2)*Power(Etau,2)*Prho1z*Prho2z - 
+             2*Power(Enu2,2)*Power(Etau,2)*Prho1z*Prho2z + 2*Power(Etau,4)*Prho1z*Prho2z + 
+             2*Power(Enu1,2)*Power(Mtau,2)*Prho1z*Prho2z + 
+             2*Power(Enu2,2)*Power(Mtau,2)*Prho1z*Prho2z - 
+             4*Power(Etau,2)*Power(Mtau,2)*Prho1z*Prho2z + 2*Power(Mtau,4)*Prho1z*Prho2z + 
+             2*Power(Enu2,2)*Power(Prho1x,2)*Prho1z*Prho2z - 
+             2*Power(Etau,2)*Power(Prho1x,2)*Prho1z*Prho2z + 
+             2*Power(Mtau,2)*Power(Prho1x,2)*Prho1z*Prho2z - 
+             2*Power(Enu2,2)*Power(Prho1y,2)*Prho1z*Prho2z + 
+             2*Power(Etau,2)*Power(Prho1y,2)*Prho1z*Prho2z - 
+             2*Power(Mtau,2)*Power(Prho1y,2)*Prho1z*Prho2z - 2*Power(Enu2,2)*Power(Prho1z,3)*Prho2z + 
+             2*Power(Etau,2)*Power(Prho1z,3)*Prho2z - 2*Power(Mtau,2)*Power(Prho1z,3)*Prho2z - 
+             4*Power(Enu1,2)*Prho1x*Prho1z*Prho2x*Prho2z + 
+             4*Power(Etau,2)*Prho1x*Prho1z*Prho2x*Prho2z - 
+             4*Power(Mtau,2)*Prho1x*Prho1z*Prho2x*Prho2z - 4*Power(Prho1x,3)*Prho1z*Prho2x*Prho2z + 
+             4*Prho1x*Power(Prho1y,2)*Prho1z*Prho2x*Prho2z + 4*Prho1x*Power(Prho1z,3)*Prho2x*Prho2z - 
+             2*Power(Enu1,2)*Prho1z*Power(Prho2x,2)*Prho2z + 
+             2*Power(Etau,2)*Prho1z*Power(Prho2x,2)*Prho2z - 
+             2*Power(Mtau,2)*Prho1z*Power(Prho2x,2)*Prho2z - 
+             2*Power(Prho1x,2)*Prho1z*Power(Prho2x,2)*Prho2z + 
+             2*Power(Prho1y,2)*Prho1z*Power(Prho2x,2)*Prho2z + 
+             2*Power(Prho1z,3)*Power(Prho2x,2)*Prho2z + 8*Power(Etau,2)*Prho1y*Prho1z*Prho2y*Prho2z - 
+             8*Power(Mtau,2)*Prho1y*Prho1z*Prho2y*Prho2z - 
+             8*Power(Prho1x,2)*Prho1y*Prho1z*Prho2y*Prho2z - 
+             2*Power(Enu1,2)*Prho1z*Power(Prho2y,2)*Prho2z + 
+             2*Power(Etau,2)*Prho1z*Power(Prho2y,2)*Prho2z - 
+             2*Power(Mtau,2)*Prho1z*Power(Prho2y,2)*Prho2z - 
+             2*Power(Prho1x,2)*Prho1z*Power(Prho2y,2)*Prho2z + 
+             2*Power(Prho1y,2)*Prho1z*Power(Prho2y,2)*Prho2z + 
+             2*Power(Prho1z,3)*Power(Prho2y,2)*Prho2z + Power(Enu1,4)*Power(Prho2z,2) - 
+             2*Power(Enu1,2)*Power(Etau,2)*Power(Prho2z,2) + Power(Etau,4)*Power(Prho2z,2) + 
+             2*Power(Enu1,2)*Power(Mtau,2)*Power(Prho2z,2) - 
+             2*Power(Etau,2)*Power(Mtau,2)*Power(Prho2z,2) + Power(Mtau,4)*Power(Prho2z,2) + 
+             2*Power(Enu1,2)*Power(Prho1x,2)*Power(Prho2z,2) - 
+             2*Power(Etau,2)*Power(Prho1x,2)*Power(Prho2z,2) + 
+             2*Power(Mtau,2)*Power(Prho1x,2)*Power(Prho2z,2) + Power(Prho1x,4)*Power(Prho2z,2) - 
+             2*Power(Enu1,2)*Power(Prho1y,2)*Power(Prho2z,2) - 
+             2*Power(Enu2,2)*Power(Prho1y,2)*Power(Prho2z,2) + 
+             2*Power(Prho1x,2)*Power(Prho1y,2)*Power(Prho2z,2) + Power(Prho1y,4)*Power(Prho2z,2) - 
+             2*Power(Enu1,2)*Power(Prho1z,2)*Power(Prho2z,2) - 
+             2*Power(Enu2,2)*Power(Prho1z,2)*Power(Prho2z,2) + 
+             4*Power(Etau,2)*Power(Prho1z,2)*Power(Prho2z,2) - 
+             4*Power(Mtau,2)*Power(Prho1z,2)*Power(Prho2z,2) - 
+             2*Power(Prho1x,2)*Power(Prho1z,2)*Power(Prho2z,2) + 
+             2*Power(Prho1y,2)*Power(Prho1z,2)*Power(Prho2z,2) + Power(Prho1z,4)*Power(Prho2z,2) + 
+             4*Prho1x*Power(Prho1y,2)*Prho2x*Power(Prho2z,2) + 
+             4*Prho1x*Power(Prho1z,2)*Prho2x*Power(Prho2z,2) + 
+             2*Power(Prho1y,2)*Power(Prho2x,2)*Power(Prho2z,2) + 
+             2*Power(Prho1z,2)*Power(Prho2x,2)*Power(Prho2z,2) - 
+             2*Power(Enu1,2)*Prho1y*Prho2y*Power(Prho2z,2) + 
+             2*Power(Etau,2)*Prho1y*Prho2y*Power(Prho2z,2) - 
+             2*Power(Mtau,2)*Prho1y*Prho2y*Power(Prho2z,2) - 
+             2*Power(Prho1x,2)*Prho1y*Prho2y*Power(Prho2z,2) + 
+             2*Power(Prho1y,3)*Prho2y*Power(Prho2z,2) + 
+             2*Prho1y*Power(Prho1z,2)*Prho2y*Power(Prho2z,2) + 
+             2*Power(Prho1y,2)*Power(Prho2y,2)*Power(Prho2z,2) + 
+             2*Power(Prho1z,2)*Power(Prho2y,2)*Power(Prho2z,2) - 
+             2*Power(Enu1,2)*Prho1z*Power(Prho2z,3) + 2*Power(Etau,2)*Prho1z*Power(Prho2z,3) - 
+             2*Power(Mtau,2)*Prho1z*Power(Prho2z,3) - 2*Power(Prho1x,2)*Prho1z*Power(Prho2z,3) + 
+             2*Power(Prho1y,2)*Prho1z*Power(Prho2z,3) + 2*Power(Prho1z,3)*Power(Prho2z,3) + 
+             Power(Prho1y,2)*Power(Prho2z,4) + Power(Prho1z,2)*Power(Prho2z,4))))/
+      (2.*(4*Power(Prho1y,2)*Power(Prho2x,2) + 4*Power(Prho1z,2)*Power(Prho2x,2) - 
+          8*Prho1x*Prho1y*Prho2x*Prho2y + 4*Power(Prho1x,2)*Power(Prho2y,2) + 
+          4*Power(Prho1z,2)*Power(Prho2y,2) - 8*Prho1x*Prho1z*Prho2x*Prho2z - 
+          8*Prho1y*Prho1z*Prho2y*Prho2z + 4*Power(Prho1x,2)*Power(Prho2z,2) + 
+          4*Power(Prho1y,2)*Power(Prho2z,2)));
+
+    Double_t Py = (-(Power(Enu2,2)*Prho1z) + Power(Etau,2)*Prho1z - Power(Mtau,2)*Prho1z + 
+        2*Prho1x*Prho1z*Prho2x + Prho1z*Power(Prho2x,2) + 2*Prho1y*Prho1z*Prho2y + 
+        Prho1z*Power(Prho2y,2) - Power(Enu1,2)*Prho2z + Power(Etau,2)*Prho2z - Power(Mtau,2)*Prho2z - 
+        Power(Prho1x,2)*Prho2z - Power(Prho1y,2)*Prho2z + Power(Prho1z,2)*Prho2z + 
+        Prho1z*Power(Prho2z,2) + (Prho1z*Prho2x*
+           (4*Power(Enu2,2)*Power(Prho1y,2)*Prho2x - 4*Power(Etau,2)*Power(Prho1y,2)*Prho2x + 
+             4*Power(Mtau,2)*Power(Prho1y,2)*Prho2x + 4*Power(Enu2,2)*Power(Prho1z,2)*Prho2x - 
+             4*Power(Etau,2)*Power(Prho1z,2)*Prho2x + 4*Power(Mtau,2)*Power(Prho1z,2)*Prho2x - 
+             8*Prho1x*Power(Prho1y,2)*Power(Prho2x,2) - 8*Prho1x*Power(Prho1z,2)*Power(Prho2x,2) - 
+             4*Power(Prho1y,2)*Power(Prho2x,3) - 4*Power(Prho1z,2)*Power(Prho2x,3) - 
+             4*Power(Enu2,2)*Prho1x*Prho1y*Prho2y + 4*Power(Etau,2)*Prho1x*Prho1y*Prho2y - 
+             4*Power(Mtau,2)*Prho1x*Prho1y*Prho2y + 4*Power(Enu1,2)*Prho1y*Prho2x*Prho2y - 
+             4*Power(Etau,2)*Prho1y*Prho2x*Prho2y + 4*Power(Mtau,2)*Prho1y*Prho2x*Prho2y + 
+             12*Power(Prho1x,2)*Prho1y*Prho2x*Prho2y - 4*Power(Prho1y,3)*Prho2x*Prho2y - 
+             4*Prho1y*Power(Prho1z,2)*Prho2x*Prho2y + 4*Prho1x*Prho1y*Power(Prho2x,2)*Prho2y - 
+             4*Power(Enu1,2)*Prho1x*Power(Prho2y,2) + 4*Power(Etau,2)*Prho1x*Power(Prho2y,2) - 
+             4*Power(Mtau,2)*Prho1x*Power(Prho2y,2) - 4*Power(Prho1x,3)*Power(Prho2y,2) + 
+             4*Prho1x*Power(Prho1y,2)*Power(Prho2y,2) - 4*Prho1x*Power(Prho1z,2)*Power(Prho2y,2) - 
+             4*Power(Prho1y,2)*Prho2x*Power(Prho2y,2) - 4*Power(Prho1z,2)*Prho2x*Power(Prho2y,2) + 
+             4*Prho1x*Prho1y*Power(Prho2y,3) - 4*Power(Enu2,2)*Prho1x*Prho1z*Prho2z + 
+             4*Power(Etau,2)*Prho1x*Prho1z*Prho2z - 4*Power(Mtau,2)*Prho1x*Prho1z*Prho2z + 
+             4*Power(Enu1,2)*Prho1z*Prho2x*Prho2z - 4*Power(Etau,2)*Prho1z*Prho2x*Prho2z + 
+             4*Power(Mtau,2)*Prho1z*Prho2x*Prho2z + 12*Power(Prho1x,2)*Prho1z*Prho2x*Prho2z - 
+             4*Power(Prho1y,2)*Prho1z*Prho2x*Prho2z - 4*Power(Prho1z,3)*Prho2x*Prho2z + 
+             4*Prho1x*Prho1z*Power(Prho2x,2)*Prho2z + 16*Prho1x*Prho1y*Prho1z*Prho2y*Prho2z + 
+             4*Prho1x*Prho1z*Power(Prho2y,2)*Prho2z - 4*Power(Enu1,2)*Prho1x*Power(Prho2z,2) + 
+             4*Power(Etau,2)*Prho1x*Power(Prho2z,2) - 4*Power(Mtau,2)*Prho1x*Power(Prho2z,2) - 
+             4*Power(Prho1x,3)*Power(Prho2z,2) - 4*Prho1x*Power(Prho1y,2)*Power(Prho2z,2) + 
+             4*Prho1x*Power(Prho1z,2)*Power(Prho2z,2) - 4*Power(Prho1y,2)*Prho2x*Power(Prho2z,2) - 
+             4*Power(Prho1z,2)*Prho2x*Power(Prho2z,2) + 4*Prho1x*Prho1y*Prho2y*Power(Prho2z,2) + 
+             4*Prho1x*Prho1z*Power(Prho2z,3) + 
+             Sqrt(Power(-4*Power(Enu2,2)*Power(Prho1y,2)*Prho2x + 
+                 4*Power(Etau,2)*Power(Prho1y,2)*Prho2x - 4*Power(Mtau,2)*Power(Prho1y,2)*Prho2x - 
+                 4*Power(Enu2,2)*Power(Prho1z,2)*Prho2x + 4*Power(Etau,2)*Power(Prho1z,2)*Prho2x - 
+                 4*Power(Mtau,2)*Power(Prho1z,2)*Prho2x + 8*Prho1x*Power(Prho1y,2)*Power(Prho2x,2) + 
+                 8*Prho1x*Power(Prho1z,2)*Power(Prho2x,2) + 4*Power(Prho1y,2)*Power(Prho2x,3) + 
+                 4*Power(Prho1z,2)*Power(Prho2x,3) + 4*Power(Enu2,2)*Prho1x*Prho1y*Prho2y - 
+                 4*Power(Etau,2)*Prho1x*Prho1y*Prho2y + 4*Power(Mtau,2)*Prho1x*Prho1y*Prho2y - 
+                 4*Power(Enu1,2)*Prho1y*Prho2x*Prho2y + 4*Power(Etau,2)*Prho1y*Prho2x*Prho2y - 
+                 4*Power(Mtau,2)*Prho1y*Prho2x*Prho2y - 12*Power(Prho1x,2)*Prho1y*Prho2x*Prho2y + 
+                 4*Power(Prho1y,3)*Prho2x*Prho2y + 4*Prho1y*Power(Prho1z,2)*Prho2x*Prho2y - 
+                 4*Prho1x*Prho1y*Power(Prho2x,2)*Prho2y + 4*Power(Enu1,2)*Prho1x*Power(Prho2y,2) - 
+                 4*Power(Etau,2)*Prho1x*Power(Prho2y,2) + 4*Power(Mtau,2)*Prho1x*Power(Prho2y,2) + 
+                 4*Power(Prho1x,3)*Power(Prho2y,2) - 4*Prho1x*Power(Prho1y,2)*Power(Prho2y,2) + 
+                 4*Prho1x*Power(Prho1z,2)*Power(Prho2y,2) + 4*Power(Prho1y,2)*Prho2x*Power(Prho2y,2) + 
+                 4*Power(Prho1z,2)*Prho2x*Power(Prho2y,2) - 4*Prho1x*Prho1y*Power(Prho2y,3) + 
+                 4*Power(Enu2,2)*Prho1x*Prho1z*Prho2z - 4*Power(Etau,2)*Prho1x*Prho1z*Prho2z + 
+                 4*Power(Mtau,2)*Prho1x*Prho1z*Prho2z - 4*Power(Enu1,2)*Prho1z*Prho2x*Prho2z + 
+                 4*Power(Etau,2)*Prho1z*Prho2x*Prho2z - 4*Power(Mtau,2)*Prho1z*Prho2x*Prho2z - 
+                 12*Power(Prho1x,2)*Prho1z*Prho2x*Prho2z + 4*Power(Prho1y,2)*Prho1z*Prho2x*Prho2z + 
+                 4*Power(Prho1z,3)*Prho2x*Prho2z - 4*Prho1x*Prho1z*Power(Prho2x,2)*Prho2z - 
+                 16*Prho1x*Prho1y*Prho1z*Prho2y*Prho2z - 4*Prho1x*Prho1z*Power(Prho2y,2)*Prho2z + 
+                 4*Power(Enu1,2)*Prho1x*Power(Prho2z,2) - 4*Power(Etau,2)*Prho1x*Power(Prho2z,2) + 
+                 4*Power(Mtau,2)*Prho1x*Power(Prho2z,2) + 4*Power(Prho1x,3)*Power(Prho2z,2) + 
+                 4*Prho1x*Power(Prho1y,2)*Power(Prho2z,2) - 4*Prho1x*Power(Prho1z,2)*Power(Prho2z,2) + 
+                 4*Power(Prho1y,2)*Prho2x*Power(Prho2z,2) + 4*Power(Prho1z,2)*Prho2x*Power(Prho2z,2) - 
+                 4*Prho1x*Prho1y*Prho2y*Power(Prho2z,2) - 4*Prho1x*Prho1z*Power(Prho2z,3),2) - 
+               4*(4*Power(Prho1y,2)*Power(Prho2x,2) + 4*Power(Prho1z,2)*Power(Prho2x,2) - 
+                  8*Prho1x*Prho1y*Prho2x*Prho2y + 4*Power(Prho1x,2)*Power(Prho2y,2) + 
+                  4*Power(Prho1z,2)*Power(Prho2y,2) - 8*Prho1x*Prho1z*Prho2x*Prho2z - 
+                  8*Prho1y*Prho1z*Prho2y*Prho2z + 4*Power(Prho1x,2)*Power(Prho2z,2) + 
+                  4*Power(Prho1y,2)*Power(Prho2z,2))*
+                (Power(Enu2,4)*Power(Prho1y,2) - 2*Power(Enu2,2)*Power(Etau,2)*Power(Prho1y,2) + 
+                  Power(Etau,4)*Power(Prho1y,2) + 2*Power(Enu2,2)*Power(Mtau,2)*Power(Prho1y,2) - 
+                  2*Power(Etau,2)*Power(Mtau,2)*Power(Prho1y,2) + Power(Mtau,4)*Power(Prho1y,2) + 
+                  Power(Enu2,4)*Power(Prho1z,2) - 2*Power(Enu2,2)*Power(Etau,2)*Power(Prho1z,2) + 
+                  Power(Etau,4)*Power(Prho1z,2) + 2*Power(Enu2,2)*Power(Mtau,2)*Power(Prho1z,2) - 
+                  2*Power(Etau,2)*Power(Mtau,2)*Power(Prho1z,2) + Power(Mtau,4)*Power(Prho1z,2) - 
+                  4*Power(Enu2,2)*Prho1x*Power(Prho1y,2)*Prho2x + 
+                  4*Power(Etau,2)*Prho1x*Power(Prho1y,2)*Prho2x - 
+                  4*Power(Mtau,2)*Prho1x*Power(Prho1y,2)*Prho2x - 
+                  4*Power(Enu2,2)*Prho1x*Power(Prho1z,2)*Prho2x + 
+                  4*Power(Etau,2)*Prho1x*Power(Prho1z,2)*Prho2x - 
+                  4*Power(Mtau,2)*Prho1x*Power(Prho1z,2)*Prho2x - 
+                  2*Power(Enu2,2)*Power(Prho1y,2)*Power(Prho2x,2) + 
+                  2*Power(Etau,2)*Power(Prho1y,2)*Power(Prho2x,2) - 
+                  2*Power(Mtau,2)*Power(Prho1y,2)*Power(Prho2x,2) + 
+                  4*Power(Prho1x,2)*Power(Prho1y,2)*Power(Prho2x,2) - 
+                  2*Power(Enu2,2)*Power(Prho1z,2)*Power(Prho2x,2) + 
+                  2*Power(Etau,2)*Power(Prho1z,2)*Power(Prho2x,2) - 
+                  2*Power(Mtau,2)*Power(Prho1z,2)*Power(Prho2x,2) + 
+                  4*Power(Prho1x,2)*Power(Prho1z,2)*Power(Prho2x,2) + 
+                  4*Prho1x*Power(Prho1y,2)*Power(Prho2x,3) + 
+                  4*Prho1x*Power(Prho1z,2)*Power(Prho2x,3) + Power(Prho1y,2)*Power(Prho2x,4) + 
+                  Power(Prho1z,2)*Power(Prho2x,4) + 2*Power(Enu1,2)*Power(Enu2,2)*Prho1y*Prho2y - 
+                  2*Power(Enu1,2)*Power(Etau,2)*Prho1y*Prho2y - 
+                  2*Power(Enu2,2)*Power(Etau,2)*Prho1y*Prho2y + 2*Power(Etau,4)*Prho1y*Prho2y + 
+                  2*Power(Enu1,2)*Power(Mtau,2)*Prho1y*Prho2y + 
+                  2*Power(Enu2,2)*Power(Mtau,2)*Prho1y*Prho2y - 
+                  4*Power(Etau,2)*Power(Mtau,2)*Prho1y*Prho2y + 2*Power(Mtau,4)*Prho1y*Prho2y + 
+                  2*Power(Enu2,2)*Power(Prho1x,2)*Prho1y*Prho2y - 
+                  2*Power(Etau,2)*Power(Prho1x,2)*Prho1y*Prho2y + 
+                  2*Power(Mtau,2)*Power(Prho1x,2)*Prho1y*Prho2y - 
+                  2*Power(Enu2,2)*Power(Prho1y,3)*Prho2y + 2*Power(Etau,2)*Power(Prho1y,3)*Prho2y - 
+                  2*Power(Mtau,2)*Power(Prho1y,3)*Prho2y - 
+                  2*Power(Enu2,2)*Prho1y*Power(Prho1z,2)*Prho2y + 
+                  2*Power(Etau,2)*Prho1y*Power(Prho1z,2)*Prho2y - 
+                  2*Power(Mtau,2)*Prho1y*Power(Prho1z,2)*Prho2y - 
+                  4*Power(Enu1,2)*Prho1x*Prho1y*Prho2x*Prho2y + 
+                  4*Power(Etau,2)*Prho1x*Prho1y*Prho2x*Prho2y - 
+                  4*Power(Mtau,2)*Prho1x*Prho1y*Prho2x*Prho2y - 
+                  4*Power(Prho1x,3)*Prho1y*Prho2x*Prho2y + 4*Prho1x*Power(Prho1y,3)*Prho2x*Prho2y + 
+                  4*Prho1x*Prho1y*Power(Prho1z,2)*Prho2x*Prho2y - 
+                  2*Power(Enu1,2)*Prho1y*Power(Prho2x,2)*Prho2y + 
+                  2*Power(Etau,2)*Prho1y*Power(Prho2x,2)*Prho2y - 
+                  2*Power(Mtau,2)*Prho1y*Power(Prho2x,2)*Prho2y - 
+                  2*Power(Prho1x,2)*Prho1y*Power(Prho2x,2)*Prho2y + 
+                  2*Power(Prho1y,3)*Power(Prho2x,2)*Prho2y + 
+                  2*Prho1y*Power(Prho1z,2)*Power(Prho2x,2)*Prho2y + Power(Enu1,4)*Power(Prho2y,2) - 
+                  2*Power(Enu1,2)*Power(Etau,2)*Power(Prho2y,2) + Power(Etau,4)*Power(Prho2y,2) + 
+                  2*Power(Enu1,2)*Power(Mtau,2)*Power(Prho2y,2) - 
+                  2*Power(Etau,2)*Power(Mtau,2)*Power(Prho2y,2) + Power(Mtau,4)*Power(Prho2y,2) + 
+                  2*Power(Enu1,2)*Power(Prho1x,2)*Power(Prho2y,2) - 
+                  2*Power(Etau,2)*Power(Prho1x,2)*Power(Prho2y,2) + 
+                  2*Power(Mtau,2)*Power(Prho1x,2)*Power(Prho2y,2) + Power(Prho1x,4)*Power(Prho2y,2) - 
+                  2*Power(Enu1,2)*Power(Prho1y,2)*Power(Prho2y,2) - 
+                  2*Power(Enu2,2)*Power(Prho1y,2)*Power(Prho2y,2) + 
+                  4*Power(Etau,2)*Power(Prho1y,2)*Power(Prho2y,2) - 
+                  4*Power(Mtau,2)*Power(Prho1y,2)*Power(Prho2y,2) - 
+                  2*Power(Prho1x,2)*Power(Prho1y,2)*Power(Prho2y,2) + 
+                  Power(Prho1y,4)*Power(Prho2y,2) - 2*Power(Enu1,2)*Power(Prho1z,2)*Power(Prho2y,2) - 
+                  2*Power(Enu2,2)*Power(Prho1z,2)*Power(Prho2y,2) + 
+                  2*Power(Prho1x,2)*Power(Prho1z,2)*Power(Prho2y,2) + 
+                  2*Power(Prho1y,2)*Power(Prho1z,2)*Power(Prho2y,2) + 
+                  Power(Prho1z,4)*Power(Prho2y,2) + 4*Prho1x*Power(Prho1y,2)*Prho2x*Power(Prho2y,2) + 
+                  4*Prho1x*Power(Prho1z,2)*Prho2x*Power(Prho2y,2) + 
+                  2*Power(Prho1y,2)*Power(Prho2x,2)*Power(Prho2y,2) + 
+                  2*Power(Prho1z,2)*Power(Prho2x,2)*Power(Prho2y,2) - 
+                  2*Power(Enu1,2)*Prho1y*Power(Prho2y,3) + 2*Power(Etau,2)*Prho1y*Power(Prho2y,3) - 
+                  2*Power(Mtau,2)*Prho1y*Power(Prho2y,3) - 2*Power(Prho1x,2)*Prho1y*Power(Prho2y,3) + 
+                  2*Power(Prho1y,3)*Power(Prho2y,3) + 2*Prho1y*Power(Prho1z,2)*Power(Prho2y,3) + 
+                  Power(Prho1y,2)*Power(Prho2y,4) + Power(Prho1z,2)*Power(Prho2y,4) + 
+                  2*Power(Enu1,2)*Power(Enu2,2)*Prho1z*Prho2z - 
+                  2*Power(Enu1,2)*Power(Etau,2)*Prho1z*Prho2z - 
+                  2*Power(Enu2,2)*Power(Etau,2)*Prho1z*Prho2z + 2*Power(Etau,4)*Prho1z*Prho2z + 
+                  2*Power(Enu1,2)*Power(Mtau,2)*Prho1z*Prho2z + 
+                  2*Power(Enu2,2)*Power(Mtau,2)*Prho1z*Prho2z - 
+                  4*Power(Etau,2)*Power(Mtau,2)*Prho1z*Prho2z + 2*Power(Mtau,4)*Prho1z*Prho2z + 
+                  2*Power(Enu2,2)*Power(Prho1x,2)*Prho1z*Prho2z - 
+                  2*Power(Etau,2)*Power(Prho1x,2)*Prho1z*Prho2z + 
+                  2*Power(Mtau,2)*Power(Prho1x,2)*Prho1z*Prho2z - 
+                  2*Power(Enu2,2)*Power(Prho1y,2)*Prho1z*Prho2z + 
+                  2*Power(Etau,2)*Power(Prho1y,2)*Prho1z*Prho2z - 
+                  2*Power(Mtau,2)*Power(Prho1y,2)*Prho1z*Prho2z - 
+                  2*Power(Enu2,2)*Power(Prho1z,3)*Prho2z + 2*Power(Etau,2)*Power(Prho1z,3)*Prho2z - 
+                  2*Power(Mtau,2)*Power(Prho1z,3)*Prho2z - 
+                  4*Power(Enu1,2)*Prho1x*Prho1z*Prho2x*Prho2z + 
+                  4*Power(Etau,2)*Prho1x*Prho1z*Prho2x*Prho2z - 
+                  4*Power(Mtau,2)*Prho1x*Prho1z*Prho2x*Prho2z - 
+                  4*Power(Prho1x,3)*Prho1z*Prho2x*Prho2z + 
+                  4*Prho1x*Power(Prho1y,2)*Prho1z*Prho2x*Prho2z + 
+                  4*Prho1x*Power(Prho1z,3)*Prho2x*Prho2z - 
+                  2*Power(Enu1,2)*Prho1z*Power(Prho2x,2)*Prho2z + 
+                  2*Power(Etau,2)*Prho1z*Power(Prho2x,2)*Prho2z - 
+                  2*Power(Mtau,2)*Prho1z*Power(Prho2x,2)*Prho2z - 
+                  2*Power(Prho1x,2)*Prho1z*Power(Prho2x,2)*Prho2z + 
+                  2*Power(Prho1y,2)*Prho1z*Power(Prho2x,2)*Prho2z + 
+                  2*Power(Prho1z,3)*Power(Prho2x,2)*Prho2z + 
+                  8*Power(Etau,2)*Prho1y*Prho1z*Prho2y*Prho2z - 
+                  8*Power(Mtau,2)*Prho1y*Prho1z*Prho2y*Prho2z - 
+                  8*Power(Prho1x,2)*Prho1y*Prho1z*Prho2y*Prho2z - 
+                  2*Power(Enu1,2)*Prho1z*Power(Prho2y,2)*Prho2z + 
+                  2*Power(Etau,2)*Prho1z*Power(Prho2y,2)*Prho2z - 
+                  2*Power(Mtau,2)*Prho1z*Power(Prho2y,2)*Prho2z - 
+                  2*Power(Prho1x,2)*Prho1z*Power(Prho2y,2)*Prho2z + 
+                  2*Power(Prho1y,2)*Prho1z*Power(Prho2y,2)*Prho2z + 
+                  2*Power(Prho1z,3)*Power(Prho2y,2)*Prho2z + Power(Enu1,4)*Power(Prho2z,2) - 
+                  2*Power(Enu1,2)*Power(Etau,2)*Power(Prho2z,2) + Power(Etau,4)*Power(Prho2z,2) + 
+                  2*Power(Enu1,2)*Power(Mtau,2)*Power(Prho2z,2) - 
+                  2*Power(Etau,2)*Power(Mtau,2)*Power(Prho2z,2) + Power(Mtau,4)*Power(Prho2z,2) + 
+                  2*Power(Enu1,2)*Power(Prho1x,2)*Power(Prho2z,2) - 
+                  2*Power(Etau,2)*Power(Prho1x,2)*Power(Prho2z,2) + 
+                  2*Power(Mtau,2)*Power(Prho1x,2)*Power(Prho2z,2) + Power(Prho1x,4)*Power(Prho2z,2) - 
+                  2*Power(Enu1,2)*Power(Prho1y,2)*Power(Prho2z,2) - 
+                  2*Power(Enu2,2)*Power(Prho1y,2)*Power(Prho2z,2) + 
+                  2*Power(Prho1x,2)*Power(Prho1y,2)*Power(Prho2z,2) + 
+                  Power(Prho1y,4)*Power(Prho2z,2) - 2*Power(Enu1,2)*Power(Prho1z,2)*Power(Prho2z,2) - 
+                  2*Power(Enu2,2)*Power(Prho1z,2)*Power(Prho2z,2) + 
+                  4*Power(Etau,2)*Power(Prho1z,2)*Power(Prho2z,2) - 
+                  4*Power(Mtau,2)*Power(Prho1z,2)*Power(Prho2z,2) - 
+                  2*Power(Prho1x,2)*Power(Prho1z,2)*Power(Prho2z,2) + 
+                  2*Power(Prho1y,2)*Power(Prho1z,2)*Power(Prho2z,2) + 
+                  Power(Prho1z,4)*Power(Prho2z,2) + 4*Prho1x*Power(Prho1y,2)*Prho2x*Power(Prho2z,2) + 
+                  4*Prho1x*Power(Prho1z,2)*Prho2x*Power(Prho2z,2) + 
+                  2*Power(Prho1y,2)*Power(Prho2x,2)*Power(Prho2z,2) + 
+                  2*Power(Prho1z,2)*Power(Prho2x,2)*Power(Prho2z,2) - 
+                  2*Power(Enu1,2)*Prho1y*Prho2y*Power(Prho2z,2) + 
+                  2*Power(Etau,2)*Prho1y*Prho2y*Power(Prho2z,2) - 
+                  2*Power(Mtau,2)*Prho1y*Prho2y*Power(Prho2z,2) - 
+                  2*Power(Prho1x,2)*Prho1y*Prho2y*Power(Prho2z,2) + 
+                  2*Power(Prho1y,3)*Prho2y*Power(Prho2z,2) + 
+                  2*Prho1y*Power(Prho1z,2)*Prho2y*Power(Prho2z,2) + 
+                  2*Power(Prho1y,2)*Power(Prho2y,2)*Power(Prho2z,2) + 
+                  2*Power(Prho1z,2)*Power(Prho2y,2)*Power(Prho2z,2) - 
+                  2*Power(Enu1,2)*Prho1z*Power(Prho2z,3) + 2*Power(Etau,2)*Prho1z*Power(Prho2z,3) - 
+                  2*Power(Mtau,2)*Prho1z*Power(Prho2z,3) - 2*Power(Prho1x,2)*Prho1z*Power(Prho2z,3) + 
+                  2*Power(Prho1y,2)*Prho1z*Power(Prho2z,3) + 2*Power(Prho1z,3)*Power(Prho2z,3) + 
+                  Power(Prho1y,2)*Power(Prho2z,4) + Power(Prho1z,2)*Power(Prho2z,4)))))/
+         (4*Power(Prho1y,2)*Power(Prho2x,2) + 4*Power(Prho1z,2)*Power(Prho2x,2) - 
+           8*Prho1x*Prho1y*Prho2x*Prho2y + 4*Power(Prho1x,2)*Power(Prho2y,2) + 
+           4*Power(Prho1z,2)*Power(Prho2y,2) - 8*Prho1x*Prho1z*Prho2x*Prho2z - 
+           8*Prho1y*Prho1z*Prho2y*Prho2z + 4*Power(Prho1x,2)*Power(Prho2z,2) + 
+           4*Power(Prho1y,2)*Power(Prho2z,2)) - 
+        (Prho1x*Prho2z*(4*Power(Enu2,2)*Power(Prho1y,2)*Prho2x - 
+             4*Power(Etau,2)*Power(Prho1y,2)*Prho2x + 4*Power(Mtau,2)*Power(Prho1y,2)*Prho2x + 
+             4*Power(Enu2,2)*Power(Prho1z,2)*Prho2x - 4*Power(Etau,2)*Power(Prho1z,2)*Prho2x + 
+             4*Power(Mtau,2)*Power(Prho1z,2)*Prho2x - 8*Prho1x*Power(Prho1y,2)*Power(Prho2x,2) - 
+             8*Prho1x*Power(Prho1z,2)*Power(Prho2x,2) - 4*Power(Prho1y,2)*Power(Prho2x,3) - 
+             4*Power(Prho1z,2)*Power(Prho2x,3) - 4*Power(Enu2,2)*Prho1x*Prho1y*Prho2y + 
+             4*Power(Etau,2)*Prho1x*Prho1y*Prho2y - 4*Power(Mtau,2)*Prho1x*Prho1y*Prho2y + 
+             4*Power(Enu1,2)*Prho1y*Prho2x*Prho2y - 4*Power(Etau,2)*Prho1y*Prho2x*Prho2y + 
+             4*Power(Mtau,2)*Prho1y*Prho2x*Prho2y + 12*Power(Prho1x,2)*Prho1y*Prho2x*Prho2y - 
+             4*Power(Prho1y,3)*Prho2x*Prho2y - 4*Prho1y*Power(Prho1z,2)*Prho2x*Prho2y + 
+             4*Prho1x*Prho1y*Power(Prho2x,2)*Prho2y - 4*Power(Enu1,2)*Prho1x*Power(Prho2y,2) + 
+             4*Power(Etau,2)*Prho1x*Power(Prho2y,2) - 4*Power(Mtau,2)*Prho1x*Power(Prho2y,2) - 
+             4*Power(Prho1x,3)*Power(Prho2y,2) + 4*Prho1x*Power(Prho1y,2)*Power(Prho2y,2) - 
+             4*Prho1x*Power(Prho1z,2)*Power(Prho2y,2) - 4*Power(Prho1y,2)*Prho2x*Power(Prho2y,2) - 
+             4*Power(Prho1z,2)*Prho2x*Power(Prho2y,2) + 4*Prho1x*Prho1y*Power(Prho2y,3) - 
+             4*Power(Enu2,2)*Prho1x*Prho1z*Prho2z + 4*Power(Etau,2)*Prho1x*Prho1z*Prho2z - 
+             4*Power(Mtau,2)*Prho1x*Prho1z*Prho2z + 4*Power(Enu1,2)*Prho1z*Prho2x*Prho2z - 
+             4*Power(Etau,2)*Prho1z*Prho2x*Prho2z + 4*Power(Mtau,2)*Prho1z*Prho2x*Prho2z + 
+             12*Power(Prho1x,2)*Prho1z*Prho2x*Prho2z - 4*Power(Prho1y,2)*Prho1z*Prho2x*Prho2z - 
+             4*Power(Prho1z,3)*Prho2x*Prho2z + 4*Prho1x*Prho1z*Power(Prho2x,2)*Prho2z + 
+             16*Prho1x*Prho1y*Prho1z*Prho2y*Prho2z + 4*Prho1x*Prho1z*Power(Prho2y,2)*Prho2z - 
+             4*Power(Enu1,2)*Prho1x*Power(Prho2z,2) + 4*Power(Etau,2)*Prho1x*Power(Prho2z,2) - 
+             4*Power(Mtau,2)*Prho1x*Power(Prho2z,2) - 4*Power(Prho1x,3)*Power(Prho2z,2) - 
+             4*Prho1x*Power(Prho1y,2)*Power(Prho2z,2) + 4*Prho1x*Power(Prho1z,2)*Power(Prho2z,2) - 
+             4*Power(Prho1y,2)*Prho2x*Power(Prho2z,2) - 4*Power(Prho1z,2)*Prho2x*Power(Prho2z,2) + 
+             4*Prho1x*Prho1y*Prho2y*Power(Prho2z,2) + 4*Prho1x*Prho1z*Power(Prho2z,3) + 
+             Sqrt(Power(-4*Power(Enu2,2)*Power(Prho1y,2)*Prho2x + 
+                 4*Power(Etau,2)*Power(Prho1y,2)*Prho2x - 4*Power(Mtau,2)*Power(Prho1y,2)*Prho2x - 
+                 4*Power(Enu2,2)*Power(Prho1z,2)*Prho2x + 4*Power(Etau,2)*Power(Prho1z,2)*Prho2x - 
+                 4*Power(Mtau,2)*Power(Prho1z,2)*Prho2x + 8*Prho1x*Power(Prho1y,2)*Power(Prho2x,2) + 
+                 8*Prho1x*Power(Prho1z,2)*Power(Prho2x,2) + 4*Power(Prho1y,2)*Power(Prho2x,3) + 
+                 4*Power(Prho1z,2)*Power(Prho2x,3) + 4*Power(Enu2,2)*Prho1x*Prho1y*Prho2y - 
+                 4*Power(Etau,2)*Prho1x*Prho1y*Prho2y + 4*Power(Mtau,2)*Prho1x*Prho1y*Prho2y - 
+                 4*Power(Enu1,2)*Prho1y*Prho2x*Prho2y + 4*Power(Etau,2)*Prho1y*Prho2x*Prho2y - 
+                 4*Power(Mtau,2)*Prho1y*Prho2x*Prho2y - 12*Power(Prho1x,2)*Prho1y*Prho2x*Prho2y + 
+                 4*Power(Prho1y,3)*Prho2x*Prho2y + 4*Prho1y*Power(Prho1z,2)*Prho2x*Prho2y - 
+                 4*Prho1x*Prho1y*Power(Prho2x,2)*Prho2y + 4*Power(Enu1,2)*Prho1x*Power(Prho2y,2) - 
+                 4*Power(Etau,2)*Prho1x*Power(Prho2y,2) + 4*Power(Mtau,2)*Prho1x*Power(Prho2y,2) + 
+                 4*Power(Prho1x,3)*Power(Prho2y,2) - 4*Prho1x*Power(Prho1y,2)*Power(Prho2y,2) + 
+                 4*Prho1x*Power(Prho1z,2)*Power(Prho2y,2) + 4*Power(Prho1y,2)*Prho2x*Power(Prho2y,2) + 
+                 4*Power(Prho1z,2)*Prho2x*Power(Prho2y,2) - 4*Prho1x*Prho1y*Power(Prho2y,3) + 
+                 4*Power(Enu2,2)*Prho1x*Prho1z*Prho2z - 4*Power(Etau,2)*Prho1x*Prho1z*Prho2z + 
+                 4*Power(Mtau,2)*Prho1x*Prho1z*Prho2z - 4*Power(Enu1,2)*Prho1z*Prho2x*Prho2z + 
+                 4*Power(Etau,2)*Prho1z*Prho2x*Prho2z - 4*Power(Mtau,2)*Prho1z*Prho2x*Prho2z - 
+                 12*Power(Prho1x,2)*Prho1z*Prho2x*Prho2z + 4*Power(Prho1y,2)*Prho1z*Prho2x*Prho2z + 
+                 4*Power(Prho1z,3)*Prho2x*Prho2z - 4*Prho1x*Prho1z*Power(Prho2x,2)*Prho2z - 
+                 16*Prho1x*Prho1y*Prho1z*Prho2y*Prho2z - 4*Prho1x*Prho1z*Power(Prho2y,2)*Prho2z + 
+                 4*Power(Enu1,2)*Prho1x*Power(Prho2z,2) - 4*Power(Etau,2)*Prho1x*Power(Prho2z,2) + 
+                 4*Power(Mtau,2)*Prho1x*Power(Prho2z,2) + 4*Power(Prho1x,3)*Power(Prho2z,2) + 
+                 4*Prho1x*Power(Prho1y,2)*Power(Prho2z,2) - 4*Prho1x*Power(Prho1z,2)*Power(Prho2z,2) + 
+                 4*Power(Prho1y,2)*Prho2x*Power(Prho2z,2) + 4*Power(Prho1z,2)*Prho2x*Power(Prho2z,2) - 
+                 4*Prho1x*Prho1y*Prho2y*Power(Prho2z,2) - 4*Prho1x*Prho1z*Power(Prho2z,3),2) - 
+               4*(4*Power(Prho1y,2)*Power(Prho2x,2) + 4*Power(Prho1z,2)*Power(Prho2x,2) - 
+                  8*Prho1x*Prho1y*Prho2x*Prho2y + 4*Power(Prho1x,2)*Power(Prho2y,2) + 
+                  4*Power(Prho1z,2)*Power(Prho2y,2) - 8*Prho1x*Prho1z*Prho2x*Prho2z - 
+                  8*Prho1y*Prho1z*Prho2y*Prho2z + 4*Power(Prho1x,2)*Power(Prho2z,2) + 
+                  4*Power(Prho1y,2)*Power(Prho2z,2))*
+                (Power(Enu2,4)*Power(Prho1y,2) - 2*Power(Enu2,2)*Power(Etau,2)*Power(Prho1y,2) + 
+                  Power(Etau,4)*Power(Prho1y,2) + 2*Power(Enu2,2)*Power(Mtau,2)*Power(Prho1y,2) - 
+                  2*Power(Etau,2)*Power(Mtau,2)*Power(Prho1y,2) + Power(Mtau,4)*Power(Prho1y,2) + 
+                  Power(Enu2,4)*Power(Prho1z,2) - 2*Power(Enu2,2)*Power(Etau,2)*Power(Prho1z,2) + 
+                  Power(Etau,4)*Power(Prho1z,2) + 2*Power(Enu2,2)*Power(Mtau,2)*Power(Prho1z,2) - 
+                  2*Power(Etau,2)*Power(Mtau,2)*Power(Prho1z,2) + Power(Mtau,4)*Power(Prho1z,2) - 
+                  4*Power(Enu2,2)*Prho1x*Power(Prho1y,2)*Prho2x + 
+                  4*Power(Etau,2)*Prho1x*Power(Prho1y,2)*Prho2x - 
+                  4*Power(Mtau,2)*Prho1x*Power(Prho1y,2)*Prho2x - 
+                  4*Power(Enu2,2)*Prho1x*Power(Prho1z,2)*Prho2x + 
+                  4*Power(Etau,2)*Prho1x*Power(Prho1z,2)*Prho2x - 
+                  4*Power(Mtau,2)*Prho1x*Power(Prho1z,2)*Prho2x - 
+                  2*Power(Enu2,2)*Power(Prho1y,2)*Power(Prho2x,2) + 
+                  2*Power(Etau,2)*Power(Prho1y,2)*Power(Prho2x,2) - 
+                  2*Power(Mtau,2)*Power(Prho1y,2)*Power(Prho2x,2) + 
+                  4*Power(Prho1x,2)*Power(Prho1y,2)*Power(Prho2x,2) - 
+                  2*Power(Enu2,2)*Power(Prho1z,2)*Power(Prho2x,2) + 
+                  2*Power(Etau,2)*Power(Prho1z,2)*Power(Prho2x,2) - 
+                  2*Power(Mtau,2)*Power(Prho1z,2)*Power(Prho2x,2) + 
+                  4*Power(Prho1x,2)*Power(Prho1z,2)*Power(Prho2x,2) + 
+                  4*Prho1x*Power(Prho1y,2)*Power(Prho2x,3) + 
+                  4*Prho1x*Power(Prho1z,2)*Power(Prho2x,3) + Power(Prho1y,2)*Power(Prho2x,4) + 
+                  Power(Prho1z,2)*Power(Prho2x,4) + 2*Power(Enu1,2)*Power(Enu2,2)*Prho1y*Prho2y - 
+                  2*Power(Enu1,2)*Power(Etau,2)*Prho1y*Prho2y - 
+                  2*Power(Enu2,2)*Power(Etau,2)*Prho1y*Prho2y + 2*Power(Etau,4)*Prho1y*Prho2y + 
+                  2*Power(Enu1,2)*Power(Mtau,2)*Prho1y*Prho2y + 
+                  2*Power(Enu2,2)*Power(Mtau,2)*Prho1y*Prho2y - 
+                  4*Power(Etau,2)*Power(Mtau,2)*Prho1y*Prho2y + 2*Power(Mtau,4)*Prho1y*Prho2y + 
+                  2*Power(Enu2,2)*Power(Prho1x,2)*Prho1y*Prho2y - 
+                  2*Power(Etau,2)*Power(Prho1x,2)*Prho1y*Prho2y + 
+                  2*Power(Mtau,2)*Power(Prho1x,2)*Prho1y*Prho2y - 
+                  2*Power(Enu2,2)*Power(Prho1y,3)*Prho2y + 2*Power(Etau,2)*Power(Prho1y,3)*Prho2y - 
+                  2*Power(Mtau,2)*Power(Prho1y,3)*Prho2y - 
+                  2*Power(Enu2,2)*Prho1y*Power(Prho1z,2)*Prho2y + 
+                  2*Power(Etau,2)*Prho1y*Power(Prho1z,2)*Prho2y - 
+                  2*Power(Mtau,2)*Prho1y*Power(Prho1z,2)*Prho2y - 
+                  4*Power(Enu1,2)*Prho1x*Prho1y*Prho2x*Prho2y + 
+                  4*Power(Etau,2)*Prho1x*Prho1y*Prho2x*Prho2y - 
+                  4*Power(Mtau,2)*Prho1x*Prho1y*Prho2x*Prho2y - 
+                  4*Power(Prho1x,3)*Prho1y*Prho2x*Prho2y + 4*Prho1x*Power(Prho1y,3)*Prho2x*Prho2y + 
+                  4*Prho1x*Prho1y*Power(Prho1z,2)*Prho2x*Prho2y - 
+                  2*Power(Enu1,2)*Prho1y*Power(Prho2x,2)*Prho2y + 
+                  2*Power(Etau,2)*Prho1y*Power(Prho2x,2)*Prho2y - 
+                  2*Power(Mtau,2)*Prho1y*Power(Prho2x,2)*Prho2y - 
+                  2*Power(Prho1x,2)*Prho1y*Power(Prho2x,2)*Prho2y + 
+                  2*Power(Prho1y,3)*Power(Prho2x,2)*Prho2y + 
+                  2*Prho1y*Power(Prho1z,2)*Power(Prho2x,2)*Prho2y + Power(Enu1,4)*Power(Prho2y,2) - 
+                  2*Power(Enu1,2)*Power(Etau,2)*Power(Prho2y,2) + Power(Etau,4)*Power(Prho2y,2) + 
+                  2*Power(Enu1,2)*Power(Mtau,2)*Power(Prho2y,2) - 
+                  2*Power(Etau,2)*Power(Mtau,2)*Power(Prho2y,2) + Power(Mtau,4)*Power(Prho2y,2) + 
+                  2*Power(Enu1,2)*Power(Prho1x,2)*Power(Prho2y,2) - 
+                  2*Power(Etau,2)*Power(Prho1x,2)*Power(Prho2y,2) + 
+                  2*Power(Mtau,2)*Power(Prho1x,2)*Power(Prho2y,2) + Power(Prho1x,4)*Power(Prho2y,2) - 
+                  2*Power(Enu1,2)*Power(Prho1y,2)*Power(Prho2y,2) - 
+                  2*Power(Enu2,2)*Power(Prho1y,2)*Power(Prho2y,2) + 
+                  4*Power(Etau,2)*Power(Prho1y,2)*Power(Prho2y,2) - 
+                  4*Power(Mtau,2)*Power(Prho1y,2)*Power(Prho2y,2) - 
+                  2*Power(Prho1x,2)*Power(Prho1y,2)*Power(Prho2y,2) + 
+                  Power(Prho1y,4)*Power(Prho2y,2) - 2*Power(Enu1,2)*Power(Prho1z,2)*Power(Prho2y,2) - 
+                  2*Power(Enu2,2)*Power(Prho1z,2)*Power(Prho2y,2) + 
+                  2*Power(Prho1x,2)*Power(Prho1z,2)*Power(Prho2y,2) + 
+                  2*Power(Prho1y,2)*Power(Prho1z,2)*Power(Prho2y,2) + 
+                  Power(Prho1z,4)*Power(Prho2y,2) + 4*Prho1x*Power(Prho1y,2)*Prho2x*Power(Prho2y,2) + 
+                  4*Prho1x*Power(Prho1z,2)*Prho2x*Power(Prho2y,2) + 
+                  2*Power(Prho1y,2)*Power(Prho2x,2)*Power(Prho2y,2) + 
+                  2*Power(Prho1z,2)*Power(Prho2x,2)*Power(Prho2y,2) - 
+                  2*Power(Enu1,2)*Prho1y*Power(Prho2y,3) + 2*Power(Etau,2)*Prho1y*Power(Prho2y,3) - 
+                  2*Power(Mtau,2)*Prho1y*Power(Prho2y,3) - 2*Power(Prho1x,2)*Prho1y*Power(Prho2y,3) + 
+                  2*Power(Prho1y,3)*Power(Prho2y,3) + 2*Prho1y*Power(Prho1z,2)*Power(Prho2y,3) + 
+                  Power(Prho1y,2)*Power(Prho2y,4) + Power(Prho1z,2)*Power(Prho2y,4) + 
+                  2*Power(Enu1,2)*Power(Enu2,2)*Prho1z*Prho2z - 
+                  2*Power(Enu1,2)*Power(Etau,2)*Prho1z*Prho2z - 
+                  2*Power(Enu2,2)*Power(Etau,2)*Prho1z*Prho2z + 2*Power(Etau,4)*Prho1z*Prho2z + 
+                  2*Power(Enu1,2)*Power(Mtau,2)*Prho1z*Prho2z + 
+                  2*Power(Enu2,2)*Power(Mtau,2)*Prho1z*Prho2z - 
+                  4*Power(Etau,2)*Power(Mtau,2)*Prho1z*Prho2z + 2*Power(Mtau,4)*Prho1z*Prho2z + 
+                  2*Power(Enu2,2)*Power(Prho1x,2)*Prho1z*Prho2z - 
+                  2*Power(Etau,2)*Power(Prho1x,2)*Prho1z*Prho2z + 
+                  2*Power(Mtau,2)*Power(Prho1x,2)*Prho1z*Prho2z - 
+                  2*Power(Enu2,2)*Power(Prho1y,2)*Prho1z*Prho2z + 
+                  2*Power(Etau,2)*Power(Prho1y,2)*Prho1z*Prho2z - 
+                  2*Power(Mtau,2)*Power(Prho1y,2)*Prho1z*Prho2z - 
+                  2*Power(Enu2,2)*Power(Prho1z,3)*Prho2z + 2*Power(Etau,2)*Power(Prho1z,3)*Prho2z - 
+                  2*Power(Mtau,2)*Power(Prho1z,3)*Prho2z - 
+                  4*Power(Enu1,2)*Prho1x*Prho1z*Prho2x*Prho2z + 
+                  4*Power(Etau,2)*Prho1x*Prho1z*Prho2x*Prho2z - 
+                  4*Power(Mtau,2)*Prho1x*Prho1z*Prho2x*Prho2z - 
+                  4*Power(Prho1x,3)*Prho1z*Prho2x*Prho2z + 
+                  4*Prho1x*Power(Prho1y,2)*Prho1z*Prho2x*Prho2z + 
+                  4*Prho1x*Power(Prho1z,3)*Prho2x*Prho2z - 
+                  2*Power(Enu1,2)*Prho1z*Power(Prho2x,2)*Prho2z + 
+                  2*Power(Etau,2)*Prho1z*Power(Prho2x,2)*Prho2z - 
+                  2*Power(Mtau,2)*Prho1z*Power(Prho2x,2)*Prho2z - 
+                  2*Power(Prho1x,2)*Prho1z*Power(Prho2x,2)*Prho2z + 
+                  2*Power(Prho1y,2)*Prho1z*Power(Prho2x,2)*Prho2z + 
+                  2*Power(Prho1z,3)*Power(Prho2x,2)*Prho2z + 
+                  8*Power(Etau,2)*Prho1y*Prho1z*Prho2y*Prho2z - 
+                  8*Power(Mtau,2)*Prho1y*Prho1z*Prho2y*Prho2z - 
+                  8*Power(Prho1x,2)*Prho1y*Prho1z*Prho2y*Prho2z - 
+                  2*Power(Enu1,2)*Prho1z*Power(Prho2y,2)*Prho2z + 
+                  2*Power(Etau,2)*Prho1z*Power(Prho2y,2)*Prho2z - 
+                  2*Power(Mtau,2)*Prho1z*Power(Prho2y,2)*Prho2z - 
+                  2*Power(Prho1x,2)*Prho1z*Power(Prho2y,2)*Prho2z + 
+                  2*Power(Prho1y,2)*Prho1z*Power(Prho2y,2)*Prho2z + 
+                  2*Power(Prho1z,3)*Power(Prho2y,2)*Prho2z + Power(Enu1,4)*Power(Prho2z,2) - 
+                  2*Power(Enu1,2)*Power(Etau,2)*Power(Prho2z,2) + Power(Etau,4)*Power(Prho2z,2) + 
+                  2*Power(Enu1,2)*Power(Mtau,2)*Power(Prho2z,2) - 
+                  2*Power(Etau,2)*Power(Mtau,2)*Power(Prho2z,2) + Power(Mtau,4)*Power(Prho2z,2) + 
+                  2*Power(Enu1,2)*Power(Prho1x,2)*Power(Prho2z,2) - 
+                  2*Power(Etau,2)*Power(Prho1x,2)*Power(Prho2z,2) + 
+                  2*Power(Mtau,2)*Power(Prho1x,2)*Power(Prho2z,2) + Power(Prho1x,4)*Power(Prho2z,2) - 
+                  2*Power(Enu1,2)*Power(Prho1y,2)*Power(Prho2z,2) - 
+                  2*Power(Enu2,2)*Power(Prho1y,2)*Power(Prho2z,2) + 
+                  2*Power(Prho1x,2)*Power(Prho1y,2)*Power(Prho2z,2) + 
+                  Power(Prho1y,4)*Power(Prho2z,2) - 2*Power(Enu1,2)*Power(Prho1z,2)*Power(Prho2z,2) - 
+                  2*Power(Enu2,2)*Power(Prho1z,2)*Power(Prho2z,2) + 
+                  4*Power(Etau,2)*Power(Prho1z,2)*Power(Prho2z,2) - 
+                  4*Power(Mtau,2)*Power(Prho1z,2)*Power(Prho2z,2) - 
+                  2*Power(Prho1x,2)*Power(Prho1z,2)*Power(Prho2z,2) + 
+                  2*Power(Prho1y,2)*Power(Prho1z,2)*Power(Prho2z,2) + 
+                  Power(Prho1z,4)*Power(Prho2z,2) + 4*Prho1x*Power(Prho1y,2)*Prho2x*Power(Prho2z,2) + 
+                  4*Prho1x*Power(Prho1z,2)*Prho2x*Power(Prho2z,2) + 
+                  2*Power(Prho1y,2)*Power(Prho2x,2)*Power(Prho2z,2) + 
+                  2*Power(Prho1z,2)*Power(Prho2x,2)*Power(Prho2z,2) - 
+                  2*Power(Enu1,2)*Prho1y*Prho2y*Power(Prho2z,2) + 
+                  2*Power(Etau,2)*Prho1y*Prho2y*Power(Prho2z,2) - 
+                  2*Power(Mtau,2)*Prho1y*Prho2y*Power(Prho2z,2) - 
+                  2*Power(Prho1x,2)*Prho1y*Prho2y*Power(Prho2z,2) + 
+                  2*Power(Prho1y,3)*Prho2y*Power(Prho2z,2) + 
+                  2*Prho1y*Power(Prho1z,2)*Prho2y*Power(Prho2z,2) + 
+                  2*Power(Prho1y,2)*Power(Prho2y,2)*Power(Prho2z,2) + 
+                  2*Power(Prho1z,2)*Power(Prho2y,2)*Power(Prho2z,2) - 
+                  2*Power(Enu1,2)*Prho1z*Power(Prho2z,3) + 2*Power(Etau,2)*Prho1z*Power(Prho2z,3) - 
+                  2*Power(Mtau,2)*Prho1z*Power(Prho2z,3) - 2*Power(Prho1x,2)*Prho1z*Power(Prho2z,3) + 
+                  2*Power(Prho1y,2)*Prho1z*Power(Prho2z,3) + 2*Power(Prho1z,3)*Power(Prho2z,3) + 
+                  Power(Prho1y,2)*Power(Prho2z,4) + Power(Prho1z,2)*Power(Prho2z,4)))))/
+         (4*Power(Prho1y,2)*Power(Prho2x,2) + 4*Power(Prho1z,2)*Power(Prho2x,2) - 
+           8*Prho1x*Prho1y*Prho2x*Prho2y + 4*Power(Prho1x,2)*Power(Prho2y,2) + 
+           4*Power(Prho1z,2)*Power(Prho2y,2) - 8*Prho1x*Prho1z*Prho2x*Prho2z - 
+           8*Prho1y*Prho1z*Prho2y*Prho2z + 4*Power(Prho1x,2)*Power(Prho2z,2) + 
+           4*Power(Prho1y,2)*Power(Prho2z,2)))/(-2*Prho1z*Prho2y + 2*Prho1y*Prho2z);
+
+    Double_t Pz = (-(Power(Enu2,2)*Prho1y) + Power(Etau,2)*Prho1y - Power(Mtau,2)*Prho1y + 
+        2*Prho1x*Prho1y*Prho2x + Prho1y*Power(Prho2x,2) - Power(Enu1,2)*Prho2y + 
+        Power(Etau,2)*Prho2y - Power(Mtau,2)*Prho2y - Power(Prho1x,2)*Prho2y + 
+        Power(Prho1y,2)*Prho2y - Power(Prho1z,2)*Prho2y + Prho1y*Power(Prho2y,2) + 
+        2*Prho1y*Prho1z*Prho2z + Prho1y*Power(Prho2z,2) + 
+        (Prho1y*Prho2x*(4*Power(Enu2,2)*Power(Prho1y,2)*Prho2x - 
+             4*Power(Etau,2)*Power(Prho1y,2)*Prho2x + 4*Power(Mtau,2)*Power(Prho1y,2)*Prho2x + 
+             4*Power(Enu2,2)*Power(Prho1z,2)*Prho2x - 4*Power(Etau,2)*Power(Prho1z,2)*Prho2x + 
+             4*Power(Mtau,2)*Power(Prho1z,2)*Prho2x - 8*Prho1x*Power(Prho1y,2)*Power(Prho2x,2) - 
+             8*Prho1x*Power(Prho1z,2)*Power(Prho2x,2) - 4*Power(Prho1y,2)*Power(Prho2x,3) - 
+             4*Power(Prho1z,2)*Power(Prho2x,3) - 4*Power(Enu2,2)*Prho1x*Prho1y*Prho2y + 
+             4*Power(Etau,2)*Prho1x*Prho1y*Prho2y - 4*Power(Mtau,2)*Prho1x*Prho1y*Prho2y + 
+             4*Power(Enu1,2)*Prho1y*Prho2x*Prho2y - 4*Power(Etau,2)*Prho1y*Prho2x*Prho2y + 
+             4*Power(Mtau,2)*Prho1y*Prho2x*Prho2y + 12*Power(Prho1x,2)*Prho1y*Prho2x*Prho2y - 
+             4*Power(Prho1y,3)*Prho2x*Prho2y - 4*Prho1y*Power(Prho1z,2)*Prho2x*Prho2y + 
+             4*Prho1x*Prho1y*Power(Prho2x,2)*Prho2y - 4*Power(Enu1,2)*Prho1x*Power(Prho2y,2) + 
+             4*Power(Etau,2)*Prho1x*Power(Prho2y,2) - 4*Power(Mtau,2)*Prho1x*Power(Prho2y,2) - 
+             4*Power(Prho1x,3)*Power(Prho2y,2) + 4*Prho1x*Power(Prho1y,2)*Power(Prho2y,2) - 
+             4*Prho1x*Power(Prho1z,2)*Power(Prho2y,2) - 4*Power(Prho1y,2)*Prho2x*Power(Prho2y,2) - 
+             4*Power(Prho1z,2)*Prho2x*Power(Prho2y,2) + 4*Prho1x*Prho1y*Power(Prho2y,3) - 
+             4*Power(Enu2,2)*Prho1x*Prho1z*Prho2z + 4*Power(Etau,2)*Prho1x*Prho1z*Prho2z - 
+             4*Power(Mtau,2)*Prho1x*Prho1z*Prho2z + 4*Power(Enu1,2)*Prho1z*Prho2x*Prho2z - 
+             4*Power(Etau,2)*Prho1z*Prho2x*Prho2z + 4*Power(Mtau,2)*Prho1z*Prho2x*Prho2z + 
+             12*Power(Prho1x,2)*Prho1z*Prho2x*Prho2z - 4*Power(Prho1y,2)*Prho1z*Prho2x*Prho2z - 
+             4*Power(Prho1z,3)*Prho2x*Prho2z + 4*Prho1x*Prho1z*Power(Prho2x,2)*Prho2z + 
+             16*Prho1x*Prho1y*Prho1z*Prho2y*Prho2z + 4*Prho1x*Prho1z*Power(Prho2y,2)*Prho2z - 
+             4*Power(Enu1,2)*Prho1x*Power(Prho2z,2) + 4*Power(Etau,2)*Prho1x*Power(Prho2z,2) - 
+             4*Power(Mtau,2)*Prho1x*Power(Prho2z,2) - 4*Power(Prho1x,3)*Power(Prho2z,2) - 
+             4*Prho1x*Power(Prho1y,2)*Power(Prho2z,2) + 4*Prho1x*Power(Prho1z,2)*Power(Prho2z,2) - 
+             4*Power(Prho1y,2)*Prho2x*Power(Prho2z,2) - 4*Power(Prho1z,2)*Prho2x*Power(Prho2z,2) + 
+             4*Prho1x*Prho1y*Prho2y*Power(Prho2z,2) + 4*Prho1x*Prho1z*Power(Prho2z,3) + 
+             Sqrt(Power(-4*Power(Enu2,2)*Power(Prho1y,2)*Prho2x + 
+                 4*Power(Etau,2)*Power(Prho1y,2)*Prho2x - 4*Power(Mtau,2)*Power(Prho1y,2)*Prho2x - 
+                 4*Power(Enu2,2)*Power(Prho1z,2)*Prho2x + 4*Power(Etau,2)*Power(Prho1z,2)*Prho2x - 
+                 4*Power(Mtau,2)*Power(Prho1z,2)*Prho2x + 8*Prho1x*Power(Prho1y,2)*Power(Prho2x,2) + 
+                 8*Prho1x*Power(Prho1z,2)*Power(Prho2x,2) + 4*Power(Prho1y,2)*Power(Prho2x,3) + 
+                 4*Power(Prho1z,2)*Power(Prho2x,3) + 4*Power(Enu2,2)*Prho1x*Prho1y*Prho2y - 
+                 4*Power(Etau,2)*Prho1x*Prho1y*Prho2y + 4*Power(Mtau,2)*Prho1x*Prho1y*Prho2y - 
+                 4*Power(Enu1,2)*Prho1y*Prho2x*Prho2y + 4*Power(Etau,2)*Prho1y*Prho2x*Prho2y - 
+                 4*Power(Mtau,2)*Prho1y*Prho2x*Prho2y - 12*Power(Prho1x,2)*Prho1y*Prho2x*Prho2y + 
+                 4*Power(Prho1y,3)*Prho2x*Prho2y + 4*Prho1y*Power(Prho1z,2)*Prho2x*Prho2y - 
+                 4*Prho1x*Prho1y*Power(Prho2x,2)*Prho2y + 4*Power(Enu1,2)*Prho1x*Power(Prho2y,2) - 
+                 4*Power(Etau,2)*Prho1x*Power(Prho2y,2) + 4*Power(Mtau,2)*Prho1x*Power(Prho2y,2) + 
+                 4*Power(Prho1x,3)*Power(Prho2y,2) - 4*Prho1x*Power(Prho1y,2)*Power(Prho2y,2) + 
+                 4*Prho1x*Power(Prho1z,2)*Power(Prho2y,2) + 4*Power(Prho1y,2)*Prho2x*Power(Prho2y,2) + 
+                 4*Power(Prho1z,2)*Prho2x*Power(Prho2y,2) - 4*Prho1x*Prho1y*Power(Prho2y,3) + 
+                 4*Power(Enu2,2)*Prho1x*Prho1z*Prho2z - 4*Power(Etau,2)*Prho1x*Prho1z*Prho2z + 
+                 4*Power(Mtau,2)*Prho1x*Prho1z*Prho2z - 4*Power(Enu1,2)*Prho1z*Prho2x*Prho2z + 
+                 4*Power(Etau,2)*Prho1z*Prho2x*Prho2z - 4*Power(Mtau,2)*Prho1z*Prho2x*Prho2z - 
+                 12*Power(Prho1x,2)*Prho1z*Prho2x*Prho2z + 4*Power(Prho1y,2)*Prho1z*Prho2x*Prho2z + 
+                 4*Power(Prho1z,3)*Prho2x*Prho2z - 4*Prho1x*Prho1z*Power(Prho2x,2)*Prho2z - 
+                 16*Prho1x*Prho1y*Prho1z*Prho2y*Prho2z - 4*Prho1x*Prho1z*Power(Prho2y,2)*Prho2z + 
+                 4*Power(Enu1,2)*Prho1x*Power(Prho2z,2) - 4*Power(Etau,2)*Prho1x*Power(Prho2z,2) + 
+                 4*Power(Mtau,2)*Prho1x*Power(Prho2z,2) + 4*Power(Prho1x,3)*Power(Prho2z,2) + 
+                 4*Prho1x*Power(Prho1y,2)*Power(Prho2z,2) - 4*Prho1x*Power(Prho1z,2)*Power(Prho2z,2) + 
+                 4*Power(Prho1y,2)*Prho2x*Power(Prho2z,2) + 4*Power(Prho1z,2)*Prho2x*Power(Prho2z,2) - 
+                 4*Prho1x*Prho1y*Prho2y*Power(Prho2z,2) - 4*Prho1x*Prho1z*Power(Prho2z,3),2) - 
+               4*(4*Power(Prho1y,2)*Power(Prho2x,2) + 4*Power(Prho1z,2)*Power(Prho2x,2) - 
+                  8*Prho1x*Prho1y*Prho2x*Prho2y + 4*Power(Prho1x,2)*Power(Prho2y,2) + 
+                  4*Power(Prho1z,2)*Power(Prho2y,2) - 8*Prho1x*Prho1z*Prho2x*Prho2z - 
+                  8*Prho1y*Prho1z*Prho2y*Prho2z + 4*Power(Prho1x,2)*Power(Prho2z,2) + 
+                  4*Power(Prho1y,2)*Power(Prho2z,2))*
+                (Power(Enu2,4)*Power(Prho1y,2) - 2*Power(Enu2,2)*Power(Etau,2)*Power(Prho1y,2) + 
+                  Power(Etau,4)*Power(Prho1y,2) + 2*Power(Enu2,2)*Power(Mtau,2)*Power(Prho1y,2) - 
+                  2*Power(Etau,2)*Power(Mtau,2)*Power(Prho1y,2) + Power(Mtau,4)*Power(Prho1y,2) + 
+                  Power(Enu2,4)*Power(Prho1z,2) - 2*Power(Enu2,2)*Power(Etau,2)*Power(Prho1z,2) + 
+                  Power(Etau,4)*Power(Prho1z,2) + 2*Power(Enu2,2)*Power(Mtau,2)*Power(Prho1z,2) - 
+                  2*Power(Etau,2)*Power(Mtau,2)*Power(Prho1z,2) + Power(Mtau,4)*Power(Prho1z,2) - 
+                  4*Power(Enu2,2)*Prho1x*Power(Prho1y,2)*Prho2x + 
+                  4*Power(Etau,2)*Prho1x*Power(Prho1y,2)*Prho2x - 
+                  4*Power(Mtau,2)*Prho1x*Power(Prho1y,2)*Prho2x - 
+                  4*Power(Enu2,2)*Prho1x*Power(Prho1z,2)*Prho2x + 
+                  4*Power(Etau,2)*Prho1x*Power(Prho1z,2)*Prho2x - 
+                  4*Power(Mtau,2)*Prho1x*Power(Prho1z,2)*Prho2x - 
+                  2*Power(Enu2,2)*Power(Prho1y,2)*Power(Prho2x,2) + 
+                  2*Power(Etau,2)*Power(Prho1y,2)*Power(Prho2x,2) - 
+                  2*Power(Mtau,2)*Power(Prho1y,2)*Power(Prho2x,2) + 
+                  4*Power(Prho1x,2)*Power(Prho1y,2)*Power(Prho2x,2) - 
+                  2*Power(Enu2,2)*Power(Prho1z,2)*Power(Prho2x,2) + 
+                  2*Power(Etau,2)*Power(Prho1z,2)*Power(Prho2x,2) - 
+                  2*Power(Mtau,2)*Power(Prho1z,2)*Power(Prho2x,2) + 
+                  4*Power(Prho1x,2)*Power(Prho1z,2)*Power(Prho2x,2) + 
+                  4*Prho1x*Power(Prho1y,2)*Power(Prho2x,3) + 
+                  4*Prho1x*Power(Prho1z,2)*Power(Prho2x,3) + Power(Prho1y,2)*Power(Prho2x,4) + 
+                  Power(Prho1z,2)*Power(Prho2x,4) + 2*Power(Enu1,2)*Power(Enu2,2)*Prho1y*Prho2y - 
+                  2*Power(Enu1,2)*Power(Etau,2)*Prho1y*Prho2y - 
+                  2*Power(Enu2,2)*Power(Etau,2)*Prho1y*Prho2y + 2*Power(Etau,4)*Prho1y*Prho2y + 
+                  2*Power(Enu1,2)*Power(Mtau,2)*Prho1y*Prho2y + 
+                  2*Power(Enu2,2)*Power(Mtau,2)*Prho1y*Prho2y - 
+                  4*Power(Etau,2)*Power(Mtau,2)*Prho1y*Prho2y + 2*Power(Mtau,4)*Prho1y*Prho2y + 
+                  2*Power(Enu2,2)*Power(Prho1x,2)*Prho1y*Prho2y - 
+                  2*Power(Etau,2)*Power(Prho1x,2)*Prho1y*Prho2y + 
+                  2*Power(Mtau,2)*Power(Prho1x,2)*Prho1y*Prho2y - 
+                  2*Power(Enu2,2)*Power(Prho1y,3)*Prho2y + 2*Power(Etau,2)*Power(Prho1y,3)*Prho2y - 
+                  2*Power(Mtau,2)*Power(Prho1y,3)*Prho2y - 
+                  2*Power(Enu2,2)*Prho1y*Power(Prho1z,2)*Prho2y + 
+                  2*Power(Etau,2)*Prho1y*Power(Prho1z,2)*Prho2y - 
+                  2*Power(Mtau,2)*Prho1y*Power(Prho1z,2)*Prho2y - 
+                  4*Power(Enu1,2)*Prho1x*Prho1y*Prho2x*Prho2y + 
+                  4*Power(Etau,2)*Prho1x*Prho1y*Prho2x*Prho2y - 
+                  4*Power(Mtau,2)*Prho1x*Prho1y*Prho2x*Prho2y - 
+                  4*Power(Prho1x,3)*Prho1y*Prho2x*Prho2y + 4*Prho1x*Power(Prho1y,3)*Prho2x*Prho2y + 
+                  4*Prho1x*Prho1y*Power(Prho1z,2)*Prho2x*Prho2y - 
+                  2*Power(Enu1,2)*Prho1y*Power(Prho2x,2)*Prho2y + 
+                  2*Power(Etau,2)*Prho1y*Power(Prho2x,2)*Prho2y - 
+                  2*Power(Mtau,2)*Prho1y*Power(Prho2x,2)*Prho2y - 
+                  2*Power(Prho1x,2)*Prho1y*Power(Prho2x,2)*Prho2y + 
+                  2*Power(Prho1y,3)*Power(Prho2x,2)*Prho2y + 
+                  2*Prho1y*Power(Prho1z,2)*Power(Prho2x,2)*Prho2y + Power(Enu1,4)*Power(Prho2y,2) - 
+                  2*Power(Enu1,2)*Power(Etau,2)*Power(Prho2y,2) + Power(Etau,4)*Power(Prho2y,2) + 
+                  2*Power(Enu1,2)*Power(Mtau,2)*Power(Prho2y,2) - 
+                  2*Power(Etau,2)*Power(Mtau,2)*Power(Prho2y,2) + Power(Mtau,4)*Power(Prho2y,2) + 
+                  2*Power(Enu1,2)*Power(Prho1x,2)*Power(Prho2y,2) - 
+                  2*Power(Etau,2)*Power(Prho1x,2)*Power(Prho2y,2) + 
+                  2*Power(Mtau,2)*Power(Prho1x,2)*Power(Prho2y,2) + Power(Prho1x,4)*Power(Prho2y,2) - 
+                  2*Power(Enu1,2)*Power(Prho1y,2)*Power(Prho2y,2) - 
+                  2*Power(Enu2,2)*Power(Prho1y,2)*Power(Prho2y,2) + 
+                  4*Power(Etau,2)*Power(Prho1y,2)*Power(Prho2y,2) - 
+                  4*Power(Mtau,2)*Power(Prho1y,2)*Power(Prho2y,2) - 
+                  2*Power(Prho1x,2)*Power(Prho1y,2)*Power(Prho2y,2) + 
+                  Power(Prho1y,4)*Power(Prho2y,2) - 2*Power(Enu1,2)*Power(Prho1z,2)*Power(Prho2y,2) - 
+                  2*Power(Enu2,2)*Power(Prho1z,2)*Power(Prho2y,2) + 
+                  2*Power(Prho1x,2)*Power(Prho1z,2)*Power(Prho2y,2) + 
+                  2*Power(Prho1y,2)*Power(Prho1z,2)*Power(Prho2y,2) + 
+                  Power(Prho1z,4)*Power(Prho2y,2) + 4*Prho1x*Power(Prho1y,2)*Prho2x*Power(Prho2y,2) + 
+                  4*Prho1x*Power(Prho1z,2)*Prho2x*Power(Prho2y,2) + 
+                  2*Power(Prho1y,2)*Power(Prho2x,2)*Power(Prho2y,2) + 
+                  2*Power(Prho1z,2)*Power(Prho2x,2)*Power(Prho2y,2) - 
+                  2*Power(Enu1,2)*Prho1y*Power(Prho2y,3) + 2*Power(Etau,2)*Prho1y*Power(Prho2y,3) - 
+                  2*Power(Mtau,2)*Prho1y*Power(Prho2y,3) - 2*Power(Prho1x,2)*Prho1y*Power(Prho2y,3) + 
+                  2*Power(Prho1y,3)*Power(Prho2y,3) + 2*Prho1y*Power(Prho1z,2)*Power(Prho2y,3) + 
+                  Power(Prho1y,2)*Power(Prho2y,4) + Power(Prho1z,2)*Power(Prho2y,4) + 
+                  2*Power(Enu1,2)*Power(Enu2,2)*Prho1z*Prho2z - 
+                  2*Power(Enu1,2)*Power(Etau,2)*Prho1z*Prho2z - 
+                  2*Power(Enu2,2)*Power(Etau,2)*Prho1z*Prho2z + 2*Power(Etau,4)*Prho1z*Prho2z + 
+                  2*Power(Enu1,2)*Power(Mtau,2)*Prho1z*Prho2z + 
+                  2*Power(Enu2,2)*Power(Mtau,2)*Prho1z*Prho2z - 
+                  4*Power(Etau,2)*Power(Mtau,2)*Prho1z*Prho2z + 2*Power(Mtau,4)*Prho1z*Prho2z + 
+                  2*Power(Enu2,2)*Power(Prho1x,2)*Prho1z*Prho2z - 
+                  2*Power(Etau,2)*Power(Prho1x,2)*Prho1z*Prho2z + 
+                  2*Power(Mtau,2)*Power(Prho1x,2)*Prho1z*Prho2z - 
+                  2*Power(Enu2,2)*Power(Prho1y,2)*Prho1z*Prho2z + 
+                  2*Power(Etau,2)*Power(Prho1y,2)*Prho1z*Prho2z - 
+                  2*Power(Mtau,2)*Power(Prho1y,2)*Prho1z*Prho2z - 
+                  2*Power(Enu2,2)*Power(Prho1z,3)*Prho2z + 2*Power(Etau,2)*Power(Prho1z,3)*Prho2z - 
+                  2*Power(Mtau,2)*Power(Prho1z,3)*Prho2z - 
+                  4*Power(Enu1,2)*Prho1x*Prho1z*Prho2x*Prho2z + 
+                  4*Power(Etau,2)*Prho1x*Prho1z*Prho2x*Prho2z - 
+                  4*Power(Mtau,2)*Prho1x*Prho1z*Prho2x*Prho2z - 
+                  4*Power(Prho1x,3)*Prho1z*Prho2x*Prho2z + 
+                  4*Prho1x*Power(Prho1y,2)*Prho1z*Prho2x*Prho2z + 
+                  4*Prho1x*Power(Prho1z,3)*Prho2x*Prho2z - 
+                  2*Power(Enu1,2)*Prho1z*Power(Prho2x,2)*Prho2z + 
+                  2*Power(Etau,2)*Prho1z*Power(Prho2x,2)*Prho2z - 
+                  2*Power(Mtau,2)*Prho1z*Power(Prho2x,2)*Prho2z - 
+                  2*Power(Prho1x,2)*Prho1z*Power(Prho2x,2)*Prho2z + 
+                  2*Power(Prho1y,2)*Prho1z*Power(Prho2x,2)*Prho2z + 
+                  2*Power(Prho1z,3)*Power(Prho2x,2)*Prho2z + 
+                  8*Power(Etau,2)*Prho1y*Prho1z*Prho2y*Prho2z - 
+                  8*Power(Mtau,2)*Prho1y*Prho1z*Prho2y*Prho2z - 
+                  8*Power(Prho1x,2)*Prho1y*Prho1z*Prho2y*Prho2z - 
+                  2*Power(Enu1,2)*Prho1z*Power(Prho2y,2)*Prho2z + 
+                  2*Power(Etau,2)*Prho1z*Power(Prho2y,2)*Prho2z - 
+                  2*Power(Mtau,2)*Prho1z*Power(Prho2y,2)*Prho2z - 
+                  2*Power(Prho1x,2)*Prho1z*Power(Prho2y,2)*Prho2z + 
+                  2*Power(Prho1y,2)*Prho1z*Power(Prho2y,2)*Prho2z + 
+                  2*Power(Prho1z,3)*Power(Prho2y,2)*Prho2z + Power(Enu1,4)*Power(Prho2z,2) - 
+                  2*Power(Enu1,2)*Power(Etau,2)*Power(Prho2z,2) + Power(Etau,4)*Power(Prho2z,2) + 
+                  2*Power(Enu1,2)*Power(Mtau,2)*Power(Prho2z,2) - 
+                  2*Power(Etau,2)*Power(Mtau,2)*Power(Prho2z,2) + Power(Mtau,4)*Power(Prho2z,2) + 
+                  2*Power(Enu1,2)*Power(Prho1x,2)*Power(Prho2z,2) - 
+                  2*Power(Etau,2)*Power(Prho1x,2)*Power(Prho2z,2) + 
+                  2*Power(Mtau,2)*Power(Prho1x,2)*Power(Prho2z,2) + Power(Prho1x,4)*Power(Prho2z,2) - 
+                  2*Power(Enu1,2)*Power(Prho1y,2)*Power(Prho2z,2) - 
+                  2*Power(Enu2,2)*Power(Prho1y,2)*Power(Prho2z,2) + 
+                  2*Power(Prho1x,2)*Power(Prho1y,2)*Power(Prho2z,2) + 
+                  Power(Prho1y,4)*Power(Prho2z,2) - 2*Power(Enu1,2)*Power(Prho1z,2)*Power(Prho2z,2) - 
+                  2*Power(Enu2,2)*Power(Prho1z,2)*Power(Prho2z,2) + 
+                  4*Power(Etau,2)*Power(Prho1z,2)*Power(Prho2z,2) - 
+                  4*Power(Mtau,2)*Power(Prho1z,2)*Power(Prho2z,2) - 
+                  2*Power(Prho1x,2)*Power(Prho1z,2)*Power(Prho2z,2) + 
+                  2*Power(Prho1y,2)*Power(Prho1z,2)*Power(Prho2z,2) + 
+                  Power(Prho1z,4)*Power(Prho2z,2) + 4*Prho1x*Power(Prho1y,2)*Prho2x*Power(Prho2z,2) + 
+                  4*Prho1x*Power(Prho1z,2)*Prho2x*Power(Prho2z,2) + 
+                  2*Power(Prho1y,2)*Power(Prho2x,2)*Power(Prho2z,2) + 
+                  2*Power(Prho1z,2)*Power(Prho2x,2)*Power(Prho2z,2) - 
+                  2*Power(Enu1,2)*Prho1y*Prho2y*Power(Prho2z,2) + 
+                  2*Power(Etau,2)*Prho1y*Prho2y*Power(Prho2z,2) - 
+                  2*Power(Mtau,2)*Prho1y*Prho2y*Power(Prho2z,2) - 
+                  2*Power(Prho1x,2)*Prho1y*Prho2y*Power(Prho2z,2) + 
+                  2*Power(Prho1y,3)*Prho2y*Power(Prho2z,2) + 
+                  2*Prho1y*Power(Prho1z,2)*Prho2y*Power(Prho2z,2) + 
+                  2*Power(Prho1y,2)*Power(Prho2y,2)*Power(Prho2z,2) + 
+                  2*Power(Prho1z,2)*Power(Prho2y,2)*Power(Prho2z,2) - 
+                  2*Power(Enu1,2)*Prho1z*Power(Prho2z,3) + 2*Power(Etau,2)*Prho1z*Power(Prho2z,3) - 
+                  2*Power(Mtau,2)*Prho1z*Power(Prho2z,3) - 2*Power(Prho1x,2)*Prho1z*Power(Prho2z,3) + 
+                  2*Power(Prho1y,2)*Prho1z*Power(Prho2z,3) + 2*Power(Prho1z,3)*Power(Prho2z,3) + 
+                  Power(Prho1y,2)*Power(Prho2z,4) + Power(Prho1z,2)*Power(Prho2z,4)))))/
+         (4*Power(Prho1y,2)*Power(Prho2x,2) + 4*Power(Prho1z,2)*Power(Prho2x,2) - 
+           8*Prho1x*Prho1y*Prho2x*Prho2y + 4*Power(Prho1x,2)*Power(Prho2y,2) + 
+           4*Power(Prho1z,2)*Power(Prho2y,2) - 8*Prho1x*Prho1z*Prho2x*Prho2z - 
+           8*Prho1y*Prho1z*Prho2y*Prho2z + 4*Power(Prho1x,2)*Power(Prho2z,2) + 
+           4*Power(Prho1y,2)*Power(Prho2z,2)) - 
+        (Prho1x*Prho2y*(4*Power(Enu2,2)*Power(Prho1y,2)*Prho2x - 
+             4*Power(Etau,2)*Power(Prho1y,2)*Prho2x + 4*Power(Mtau,2)*Power(Prho1y,2)*Prho2x + 
+             4*Power(Enu2,2)*Power(Prho1z,2)*Prho2x - 4*Power(Etau,2)*Power(Prho1z,2)*Prho2x + 
+             4*Power(Mtau,2)*Power(Prho1z,2)*Prho2x - 8*Prho1x*Power(Prho1y,2)*Power(Prho2x,2) - 
+             8*Prho1x*Power(Prho1z,2)*Power(Prho2x,2) - 4*Power(Prho1y,2)*Power(Prho2x,3) - 
+             4*Power(Prho1z,2)*Power(Prho2x,3) - 4*Power(Enu2,2)*Prho1x*Prho1y*Prho2y + 
+             4*Power(Etau,2)*Prho1x*Prho1y*Prho2y - 4*Power(Mtau,2)*Prho1x*Prho1y*Prho2y + 
+             4*Power(Enu1,2)*Prho1y*Prho2x*Prho2y - 4*Power(Etau,2)*Prho1y*Prho2x*Prho2y + 
+             4*Power(Mtau,2)*Prho1y*Prho2x*Prho2y + 12*Power(Prho1x,2)*Prho1y*Prho2x*Prho2y - 
+             4*Power(Prho1y,3)*Prho2x*Prho2y - 4*Prho1y*Power(Prho1z,2)*Prho2x*Prho2y + 
+             4*Prho1x*Prho1y*Power(Prho2x,2)*Prho2y - 4*Power(Enu1,2)*Prho1x*Power(Prho2y,2) + 
+             4*Power(Etau,2)*Prho1x*Power(Prho2y,2) - 4*Power(Mtau,2)*Prho1x*Power(Prho2y,2) - 
+             4*Power(Prho1x,3)*Power(Prho2y,2) + 4*Prho1x*Power(Prho1y,2)*Power(Prho2y,2) - 
+             4*Prho1x*Power(Prho1z,2)*Power(Prho2y,2) - 4*Power(Prho1y,2)*Prho2x*Power(Prho2y,2) - 
+             4*Power(Prho1z,2)*Prho2x*Power(Prho2y,2) + 4*Prho1x*Prho1y*Power(Prho2y,3) - 
+             4*Power(Enu2,2)*Prho1x*Prho1z*Prho2z + 4*Power(Etau,2)*Prho1x*Prho1z*Prho2z - 
+             4*Power(Mtau,2)*Prho1x*Prho1z*Prho2z + 4*Power(Enu1,2)*Prho1z*Prho2x*Prho2z - 
+             4*Power(Etau,2)*Prho1z*Prho2x*Prho2z + 4*Power(Mtau,2)*Prho1z*Prho2x*Prho2z + 
+             12*Power(Prho1x,2)*Prho1z*Prho2x*Prho2z - 4*Power(Prho1y,2)*Prho1z*Prho2x*Prho2z - 
+             4*Power(Prho1z,3)*Prho2x*Prho2z + 4*Prho1x*Prho1z*Power(Prho2x,2)*Prho2z + 
+             16*Prho1x*Prho1y*Prho1z*Prho2y*Prho2z + 4*Prho1x*Prho1z*Power(Prho2y,2)*Prho2z - 
+             4*Power(Enu1,2)*Prho1x*Power(Prho2z,2) + 4*Power(Etau,2)*Prho1x*Power(Prho2z,2) - 
+             4*Power(Mtau,2)*Prho1x*Power(Prho2z,2) - 4*Power(Prho1x,3)*Power(Prho2z,2) - 
+             4*Prho1x*Power(Prho1y,2)*Power(Prho2z,2) + 4*Prho1x*Power(Prho1z,2)*Power(Prho2z,2) - 
+             4*Power(Prho1y,2)*Prho2x*Power(Prho2z,2) - 4*Power(Prho1z,2)*Prho2x*Power(Prho2z,2) + 
+             4*Prho1x*Prho1y*Prho2y*Power(Prho2z,2) + 4*Prho1x*Prho1z*Power(Prho2z,3) + 
+             Sqrt(Power(-4*Power(Enu2,2)*Power(Prho1y,2)*Prho2x + 
+                 4*Power(Etau,2)*Power(Prho1y,2)*Prho2x - 4*Power(Mtau,2)*Power(Prho1y,2)*Prho2x - 
+                 4*Power(Enu2,2)*Power(Prho1z,2)*Prho2x + 4*Power(Etau,2)*Power(Prho1z,2)*Prho2x - 
+                 4*Power(Mtau,2)*Power(Prho1z,2)*Prho2x + 8*Prho1x*Power(Prho1y,2)*Power(Prho2x,2) + 
+                 8*Prho1x*Power(Prho1z,2)*Power(Prho2x,2) + 4*Power(Prho1y,2)*Power(Prho2x,3) + 
+                 4*Power(Prho1z,2)*Power(Prho2x,3) + 4*Power(Enu2,2)*Prho1x*Prho1y*Prho2y - 
+                 4*Power(Etau,2)*Prho1x*Prho1y*Prho2y + 4*Power(Mtau,2)*Prho1x*Prho1y*Prho2y - 
+                 4*Power(Enu1,2)*Prho1y*Prho2x*Prho2y + 4*Power(Etau,2)*Prho1y*Prho2x*Prho2y - 
+                 4*Power(Mtau,2)*Prho1y*Prho2x*Prho2y - 12*Power(Prho1x,2)*Prho1y*Prho2x*Prho2y + 
+                 4*Power(Prho1y,3)*Prho2x*Prho2y + 4*Prho1y*Power(Prho1z,2)*Prho2x*Prho2y - 
+                 4*Prho1x*Prho1y*Power(Prho2x,2)*Prho2y + 4*Power(Enu1,2)*Prho1x*Power(Prho2y,2) - 
+                 4*Power(Etau,2)*Prho1x*Power(Prho2y,2) + 4*Power(Mtau,2)*Prho1x*Power(Prho2y,2) + 
+                 4*Power(Prho1x,3)*Power(Prho2y,2) - 4*Prho1x*Power(Prho1y,2)*Power(Prho2y,2) + 
+                 4*Prho1x*Power(Prho1z,2)*Power(Prho2y,2) + 4*Power(Prho1y,2)*Prho2x*Power(Prho2y,2) + 
+                 4*Power(Prho1z,2)*Prho2x*Power(Prho2y,2) - 4*Prho1x*Prho1y*Power(Prho2y,3) + 
+                 4*Power(Enu2,2)*Prho1x*Prho1z*Prho2z - 4*Power(Etau,2)*Prho1x*Prho1z*Prho2z + 
+                 4*Power(Mtau,2)*Prho1x*Prho1z*Prho2z - 4*Power(Enu1,2)*Prho1z*Prho2x*Prho2z + 
+                 4*Power(Etau,2)*Prho1z*Prho2x*Prho2z - 4*Power(Mtau,2)*Prho1z*Prho2x*Prho2z - 
+                 12*Power(Prho1x,2)*Prho1z*Prho2x*Prho2z + 4*Power(Prho1y,2)*Prho1z*Prho2x*Prho2z + 
+                 4*Power(Prho1z,3)*Prho2x*Prho2z - 4*Prho1x*Prho1z*Power(Prho2x,2)*Prho2z - 
+                 16*Prho1x*Prho1y*Prho1z*Prho2y*Prho2z - 4*Prho1x*Prho1z*Power(Prho2y,2)*Prho2z + 
+                 4*Power(Enu1,2)*Prho1x*Power(Prho2z,2) - 4*Power(Etau,2)*Prho1x*Power(Prho2z,2) + 
+                 4*Power(Mtau,2)*Prho1x*Power(Prho2z,2) + 4*Power(Prho1x,3)*Power(Prho2z,2) + 
+                 4*Prho1x*Power(Prho1y,2)*Power(Prho2z,2) - 4*Prho1x*Power(Prho1z,2)*Power(Prho2z,2) + 
+                 4*Power(Prho1y,2)*Prho2x*Power(Prho2z,2) + 4*Power(Prho1z,2)*Prho2x*Power(Prho2z,2) - 
+                 4*Prho1x*Prho1y*Prho2y*Power(Prho2z,2) - 4*Prho1x*Prho1z*Power(Prho2z,3),2) - 
+               4*(4*Power(Prho1y,2)*Power(Prho2x,2) + 4*Power(Prho1z,2)*Power(Prho2x,2) - 
+                  8*Prho1x*Prho1y*Prho2x*Prho2y + 4*Power(Prho1x,2)*Power(Prho2y,2) + 
+                  4*Power(Prho1z,2)*Power(Prho2y,2) - 8*Prho1x*Prho1z*Prho2x*Prho2z - 
+                  8*Prho1y*Prho1z*Prho2y*Prho2z + 4*Power(Prho1x,2)*Power(Prho2z,2) + 
+                  4*Power(Prho1y,2)*Power(Prho2z,2))*
+                (Power(Enu2,4)*Power(Prho1y,2) - 2*Power(Enu2,2)*Power(Etau,2)*Power(Prho1y,2) + 
+                  Power(Etau,4)*Power(Prho1y,2) + 2*Power(Enu2,2)*Power(Mtau,2)*Power(Prho1y,2) - 
+                  2*Power(Etau,2)*Power(Mtau,2)*Power(Prho1y,2) + Power(Mtau,4)*Power(Prho1y,2) + 
+                  Power(Enu2,4)*Power(Prho1z,2) - 2*Power(Enu2,2)*Power(Etau,2)*Power(Prho1z,2) + 
+                  Power(Etau,4)*Power(Prho1z,2) + 2*Power(Enu2,2)*Power(Mtau,2)*Power(Prho1z,2) - 
+                  2*Power(Etau,2)*Power(Mtau,2)*Power(Prho1z,2) + Power(Mtau,4)*Power(Prho1z,2) - 
+                  4*Power(Enu2,2)*Prho1x*Power(Prho1y,2)*Prho2x + 
+                  4*Power(Etau,2)*Prho1x*Power(Prho1y,2)*Prho2x - 
+                  4*Power(Mtau,2)*Prho1x*Power(Prho1y,2)*Prho2x - 
+                  4*Power(Enu2,2)*Prho1x*Power(Prho1z,2)*Prho2x + 
+                  4*Power(Etau,2)*Prho1x*Power(Prho1z,2)*Prho2x - 
+                  4*Power(Mtau,2)*Prho1x*Power(Prho1z,2)*Prho2x - 
+                  2*Power(Enu2,2)*Power(Prho1y,2)*Power(Prho2x,2) + 
+                  2*Power(Etau,2)*Power(Prho1y,2)*Power(Prho2x,2) - 
+                  2*Power(Mtau,2)*Power(Prho1y,2)*Power(Prho2x,2) + 
+                  4*Power(Prho1x,2)*Power(Prho1y,2)*Power(Prho2x,2) - 
+                  2*Power(Enu2,2)*Power(Prho1z,2)*Power(Prho2x,2) + 
+                  2*Power(Etau,2)*Power(Prho1z,2)*Power(Prho2x,2) - 
+                  2*Power(Mtau,2)*Power(Prho1z,2)*Power(Prho2x,2) + 
+                  4*Power(Prho1x,2)*Power(Prho1z,2)*Power(Prho2x,2) + 
+                  4*Prho1x*Power(Prho1y,2)*Power(Prho2x,3) + 
+                  4*Prho1x*Power(Prho1z,2)*Power(Prho2x,3) + Power(Prho1y,2)*Power(Prho2x,4) + 
+                  Power(Prho1z,2)*Power(Prho2x,4) + 2*Power(Enu1,2)*Power(Enu2,2)*Prho1y*Prho2y - 
+                  2*Power(Enu1,2)*Power(Etau,2)*Prho1y*Prho2y - 
+                  2*Power(Enu2,2)*Power(Etau,2)*Prho1y*Prho2y + 2*Power(Etau,4)*Prho1y*Prho2y + 
+                  2*Power(Enu1,2)*Power(Mtau,2)*Prho1y*Prho2y + 
+                  2*Power(Enu2,2)*Power(Mtau,2)*Prho1y*Prho2y - 
+                  4*Power(Etau,2)*Power(Mtau,2)*Prho1y*Prho2y + 2*Power(Mtau,4)*Prho1y*Prho2y + 
+                  2*Power(Enu2,2)*Power(Prho1x,2)*Prho1y*Prho2y - 
+                  2*Power(Etau,2)*Power(Prho1x,2)*Prho1y*Prho2y + 
+                  2*Power(Mtau,2)*Power(Prho1x,2)*Prho1y*Prho2y - 
+                  2*Power(Enu2,2)*Power(Prho1y,3)*Prho2y + 2*Power(Etau,2)*Power(Prho1y,3)*Prho2y - 
+                  2*Power(Mtau,2)*Power(Prho1y,3)*Prho2y - 
+                  2*Power(Enu2,2)*Prho1y*Power(Prho1z,2)*Prho2y + 
+                  2*Power(Etau,2)*Prho1y*Power(Prho1z,2)*Prho2y - 
+                  2*Power(Mtau,2)*Prho1y*Power(Prho1z,2)*Prho2y - 
+                  4*Power(Enu1,2)*Prho1x*Prho1y*Prho2x*Prho2y + 
+                  4*Power(Etau,2)*Prho1x*Prho1y*Prho2x*Prho2y - 
+                  4*Power(Mtau,2)*Prho1x*Prho1y*Prho2x*Prho2y - 
+                  4*Power(Prho1x,3)*Prho1y*Prho2x*Prho2y + 4*Prho1x*Power(Prho1y,3)*Prho2x*Prho2y + 
+                  4*Prho1x*Prho1y*Power(Prho1z,2)*Prho2x*Prho2y - 
+                  2*Power(Enu1,2)*Prho1y*Power(Prho2x,2)*Prho2y + 
+                  2*Power(Etau,2)*Prho1y*Power(Prho2x,2)*Prho2y - 
+                  2*Power(Mtau,2)*Prho1y*Power(Prho2x,2)*Prho2y - 
+                  2*Power(Prho1x,2)*Prho1y*Power(Prho2x,2)*Prho2y + 
+                  2*Power(Prho1y,3)*Power(Prho2x,2)*Prho2y + 
+                  2*Prho1y*Power(Prho1z,2)*Power(Prho2x,2)*Prho2y + Power(Enu1,4)*Power(Prho2y,2) - 
+                  2*Power(Enu1,2)*Power(Etau,2)*Power(Prho2y,2) + Power(Etau,4)*Power(Prho2y,2) + 
+                  2*Power(Enu1,2)*Power(Mtau,2)*Power(Prho2y,2) - 
+                  2*Power(Etau,2)*Power(Mtau,2)*Power(Prho2y,2) + Power(Mtau,4)*Power(Prho2y,2) + 
+                  2*Power(Enu1,2)*Power(Prho1x,2)*Power(Prho2y,2) - 
+                  2*Power(Etau,2)*Power(Prho1x,2)*Power(Prho2y,2) + 
+                  2*Power(Mtau,2)*Power(Prho1x,2)*Power(Prho2y,2) + Power(Prho1x,4)*Power(Prho2y,2) - 
+                  2*Power(Enu1,2)*Power(Prho1y,2)*Power(Prho2y,2) - 
+                  2*Power(Enu2,2)*Power(Prho1y,2)*Power(Prho2y,2) + 
+                  4*Power(Etau,2)*Power(Prho1y,2)*Power(Prho2y,2) - 
+                  4*Power(Mtau,2)*Power(Prho1y,2)*Power(Prho2y,2) - 
+                  2*Power(Prho1x,2)*Power(Prho1y,2)*Power(Prho2y,2) + 
+                  Power(Prho1y,4)*Power(Prho2y,2) - 2*Power(Enu1,2)*Power(Prho1z,2)*Power(Prho2y,2) - 
+                  2*Power(Enu2,2)*Power(Prho1z,2)*Power(Prho2y,2) + 
+                  2*Power(Prho1x,2)*Power(Prho1z,2)*Power(Prho2y,2) + 
+                  2*Power(Prho1y,2)*Power(Prho1z,2)*Power(Prho2y,2) + 
+                  Power(Prho1z,4)*Power(Prho2y,2) + 4*Prho1x*Power(Prho1y,2)*Prho2x*Power(Prho2y,2) + 
+                  4*Prho1x*Power(Prho1z,2)*Prho2x*Power(Prho2y,2) + 
+                  2*Power(Prho1y,2)*Power(Prho2x,2)*Power(Prho2y,2) + 
+                  2*Power(Prho1z,2)*Power(Prho2x,2)*Power(Prho2y,2) - 
+                  2*Power(Enu1,2)*Prho1y*Power(Prho2y,3) + 2*Power(Etau,2)*Prho1y*Power(Prho2y,3) - 
+                  2*Power(Mtau,2)*Prho1y*Power(Prho2y,3) - 2*Power(Prho1x,2)*Prho1y*Power(Prho2y,3) + 
+                  2*Power(Prho1y,3)*Power(Prho2y,3) + 2*Prho1y*Power(Prho1z,2)*Power(Prho2y,3) + 
+                  Power(Prho1y,2)*Power(Prho2y,4) + Power(Prho1z,2)*Power(Prho2y,4) + 
+                  2*Power(Enu1,2)*Power(Enu2,2)*Prho1z*Prho2z - 
+                  2*Power(Enu1,2)*Power(Etau,2)*Prho1z*Prho2z - 
+                  2*Power(Enu2,2)*Power(Etau,2)*Prho1z*Prho2z + 2*Power(Etau,4)*Prho1z*Prho2z + 
+                  2*Power(Enu1,2)*Power(Mtau,2)*Prho1z*Prho2z + 
+                  2*Power(Enu2,2)*Power(Mtau,2)*Prho1z*Prho2z - 
+                  4*Power(Etau,2)*Power(Mtau,2)*Prho1z*Prho2z + 2*Power(Mtau,4)*Prho1z*Prho2z + 
+                  2*Power(Enu2,2)*Power(Prho1x,2)*Prho1z*Prho2z - 
+                  2*Power(Etau,2)*Power(Prho1x,2)*Prho1z*Prho2z + 
+                  2*Power(Mtau,2)*Power(Prho1x,2)*Prho1z*Prho2z - 
+                  2*Power(Enu2,2)*Power(Prho1y,2)*Prho1z*Prho2z + 
+                  2*Power(Etau,2)*Power(Prho1y,2)*Prho1z*Prho2z - 
+                  2*Power(Mtau,2)*Power(Prho1y,2)*Prho1z*Prho2z - 
+                  2*Power(Enu2,2)*Power(Prho1z,3)*Prho2z + 2*Power(Etau,2)*Power(Prho1z,3)*Prho2z - 
+                  2*Power(Mtau,2)*Power(Prho1z,3)*Prho2z - 
+                  4*Power(Enu1,2)*Prho1x*Prho1z*Prho2x*Prho2z + 
+                  4*Power(Etau,2)*Prho1x*Prho1z*Prho2x*Prho2z - 
+                  4*Power(Mtau,2)*Prho1x*Prho1z*Prho2x*Prho2z - 
+                  4*Power(Prho1x,3)*Prho1z*Prho2x*Prho2z + 
+                  4*Prho1x*Power(Prho1y,2)*Prho1z*Prho2x*Prho2z + 
+                  4*Prho1x*Power(Prho1z,3)*Prho2x*Prho2z - 
+                  2*Power(Enu1,2)*Prho1z*Power(Prho2x,2)*Prho2z + 
+                  2*Power(Etau,2)*Prho1z*Power(Prho2x,2)*Prho2z - 
+                  2*Power(Mtau,2)*Prho1z*Power(Prho2x,2)*Prho2z - 
+                  2*Power(Prho1x,2)*Prho1z*Power(Prho2x,2)*Prho2z + 
+                  2*Power(Prho1y,2)*Prho1z*Power(Prho2x,2)*Prho2z + 
+                  2*Power(Prho1z,3)*Power(Prho2x,2)*Prho2z + 
+                  8*Power(Etau,2)*Prho1y*Prho1z*Prho2y*Prho2z - 
+                  8*Power(Mtau,2)*Prho1y*Prho1z*Prho2y*Prho2z - 
+                  8*Power(Prho1x,2)*Prho1y*Prho1z*Prho2y*Prho2z - 
+                  2*Power(Enu1,2)*Prho1z*Power(Prho2y,2)*Prho2z + 
+                  2*Power(Etau,2)*Prho1z*Power(Prho2y,2)*Prho2z - 
+                  2*Power(Mtau,2)*Prho1z*Power(Prho2y,2)*Prho2z - 
+                  2*Power(Prho1x,2)*Prho1z*Power(Prho2y,2)*Prho2z + 
+                  2*Power(Prho1y,2)*Prho1z*Power(Prho2y,2)*Prho2z + 
+                  2*Power(Prho1z,3)*Power(Prho2y,2)*Prho2z + Power(Enu1,4)*Power(Prho2z,2) - 
+                  2*Power(Enu1,2)*Power(Etau,2)*Power(Prho2z,2) + Power(Etau,4)*Power(Prho2z,2) + 
+                  2*Power(Enu1,2)*Power(Mtau,2)*Power(Prho2z,2) - 
+                  2*Power(Etau,2)*Power(Mtau,2)*Power(Prho2z,2) + Power(Mtau,4)*Power(Prho2z,2) + 
+                  2*Power(Enu1,2)*Power(Prho1x,2)*Power(Prho2z,2) - 
+                  2*Power(Etau,2)*Power(Prho1x,2)*Power(Prho2z,2) + 
+                  2*Power(Mtau,2)*Power(Prho1x,2)*Power(Prho2z,2) + Power(Prho1x,4)*Power(Prho2z,2) - 
+                  2*Power(Enu1,2)*Power(Prho1y,2)*Power(Prho2z,2) - 
+                  2*Power(Enu2,2)*Power(Prho1y,2)*Power(Prho2z,2) + 
+                  2*Power(Prho1x,2)*Power(Prho1y,2)*Power(Prho2z,2) + 
+                  Power(Prho1y,4)*Power(Prho2z,2) - 2*Power(Enu1,2)*Power(Prho1z,2)*Power(Prho2z,2) - 
+                  2*Power(Enu2,2)*Power(Prho1z,2)*Power(Prho2z,2) + 
+                  4*Power(Etau,2)*Power(Prho1z,2)*Power(Prho2z,2) - 
+                  4*Power(Mtau,2)*Power(Prho1z,2)*Power(Prho2z,2) - 
+                  2*Power(Prho1x,2)*Power(Prho1z,2)*Power(Prho2z,2) + 
+                  2*Power(Prho1y,2)*Power(Prho1z,2)*Power(Prho2z,2) + 
+                  Power(Prho1z,4)*Power(Prho2z,2) + 4*Prho1x*Power(Prho1y,2)*Prho2x*Power(Prho2z,2) + 
+                  4*Prho1x*Power(Prho1z,2)*Prho2x*Power(Prho2z,2) + 
+                  2*Power(Prho1y,2)*Power(Prho2x,2)*Power(Prho2z,2) + 
+                  2*Power(Prho1z,2)*Power(Prho2x,2)*Power(Prho2z,2) - 
+                  2*Power(Enu1,2)*Prho1y*Prho2y*Power(Prho2z,2) + 
+                  2*Power(Etau,2)*Prho1y*Prho2y*Power(Prho2z,2) - 
+                  2*Power(Mtau,2)*Prho1y*Prho2y*Power(Prho2z,2) - 
+                  2*Power(Prho1x,2)*Prho1y*Prho2y*Power(Prho2z,2) + 
+                  2*Power(Prho1y,3)*Prho2y*Power(Prho2z,2) + 
+                  2*Prho1y*Power(Prho1z,2)*Prho2y*Power(Prho2z,2) + 
+                  2*Power(Prho1y,2)*Power(Prho2y,2)*Power(Prho2z,2) + 
+                  2*Power(Prho1z,2)*Power(Prho2y,2)*Power(Prho2z,2) - 
+                  2*Power(Enu1,2)*Prho1z*Power(Prho2z,3) + 2*Power(Etau,2)*Prho1z*Power(Prho2z,3) - 
+                  2*Power(Mtau,2)*Prho1z*Power(Prho2z,3) - 2*Power(Prho1x,2)*Prho1z*Power(Prho2z,3) + 
+                  2*Power(Prho1y,2)*Prho1z*Power(Prho2z,3) + 2*Power(Prho1z,3)*Power(Prho2z,3) + 
+                  Power(Prho1y,2)*Power(Prho2z,4) + Power(Prho1z,2)*Power(Prho2z,4)))))/
+         (4*Power(Prho1y,2)*Power(Prho2x,2) + 4*Power(Prho1z,2)*Power(Prho2x,2) - 
+           8*Prho1x*Prho1y*Prho2x*Prho2y + 4*Power(Prho1x,2)*Power(Prho2y,2) + 
+           4*Power(Prho1z,2)*Power(Prho2y,2) - 8*Prho1x*Prho1z*Prho2x*Prho2z - 
+           8*Prho1y*Prho1z*Prho2y*Prho2z + 4*Power(Prho1x,2)*Power(Prho2z,2) + 
+           4*Power(Prho1y,2)*Power(Prho2z,2)))/(2*Prho1z*Prho2y - 2*Prho1y*Prho2z);
+
+    TLorentzVector vNeutrino1;
+    vNeutrino1.SetPxPyPzE(Px,Py,Pz,Enu1);
+
+    vNeutrino1.Boost(v3Higgs);
+
+    return vNeutrino1;
+}
+
+/*
+ * FUNCTION FOR GETTING THE MOMENTUM OF THE SECOND NEUTRINO
+ */
+
+TLorentzVector getNeut2(TLorentzVector vRho1, TLorentzVector vRho2, TLorentzVector vNeutrino1, TLorentzVector vZ, TLorentzVector vInit){
+    return vInit - vRho1 - vRho2 - vNeutrino1 - vZ;
 }
