@@ -40,6 +40,14 @@ public:
     return sqrt(d2);
   }
 
+  double distanceW(int i, const Dataset &data, int j){
+    double d2=0;
+    for(int n=0; n < _ndim-1; n++){
+      d2 += pow(_data[i][n]-data._data[j][n],2);
+    }
+    return sqrt(d2);
+  }
+
 };
 
 #endif

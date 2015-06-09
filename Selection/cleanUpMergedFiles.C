@@ -69,12 +69,16 @@ void cleanUpMergedFiles(TString infilename="/filepath/test.root", TString outfil
     // Z
     Float_t z_pt, z_eta, z_phi, z_mass;
 
+    // Reco Z
+    Float_t recoz_pt, recoz_eta, recoz_phi, recoz_mass;
+
 	TFile* infile = new TFile(infilename); assert(infile);
 	TTree* intree = (TTree*) infile->Get("Events"); assert(intree);
 
 	intree->SetBranchAddress("eventWeight",		&eventWeight);
 	intree->SetBranchAddress("nProngTau1",		&nProngTau1);
 	intree->SetBranchAddress("nProngTau2",		&nProngTau2);
+    intree->SetBranchAddress("zToLep",          &zToLep);
 	intree->SetBranchAddress("jetTau1_pt",		&jetTau1_pt);
 	intree->SetBranchAddress("jetTau1_eta",		&jetTau1_eta);
 	intree->SetBranchAddress("jetTau1_phi",		&jetTau1_phi);
@@ -135,6 +139,10 @@ void cleanUpMergedFiles(TString infilename="/filepath/test.root", TString outfil
     intree->SetBranchAddress("z_eta",           &z_eta);
     intree->SetBranchAddress("z_phi",           &z_phi);
     intree->SetBranchAddress("z_mass",          &z_mass);
+    intree->SetBranchAddress("recoz_pt",        &recoz_pt);
+    intree->SetBranchAddress("recoz_eta",       &recoz_eta);
+    intree->SetBranchAddress("recoz_phi",       &recoz_phi);
+    intree->SetBranchAddress("recoz_mass",      &recoz_mass);
 
 	TTree* infotree = (TTree*) infile->Get("Count"); assert(infotree);
 	infotree->SetBranchAddress("n",      &n);
@@ -160,6 +168,7 @@ void cleanUpMergedFiles(TString infilename="/filepath/test.root", TString outfil
     outTree->Branch("nLeptons",         &nLeptons,          "nLeptons/i");      // number of leptons
     outTree->Branch("nProngTau1",       &nProngTau1,        "nProngTau1/i");
     outTree->Branch("nProngTau2",       &nProngTau2,        "nProngTau2/i");
+    outTree->Branch("zToLep",           &zToLep,            "zToLep/i");
 
     outTree->Branch("jetTau1_pt",       &jetTau1_pt,        "jetTau1_pt/f");    // pt(Tau1)
     outTree->Branch("jetTau1_eta",      &jetTau1_eta,       "jetTau1_eta/f");   // eta(Tau1)
@@ -235,6 +244,11 @@ void cleanUpMergedFiles(TString infilename="/filepath/test.root", TString outfil
     outTree->Branch("z_eta",           &z_eta,             "z_eta/f");
     outTree->Branch("z_phi",           &z_phi,             "z_phi/f");
     outTree->Branch("z_mass",          &z_mass,            "z_mass/f");
+
+    outTree->Branch("recoz_pt",            &recoz_pt,              "recoz_pt/f");
+    outTree->Branch("recoz_eta",           &recoz_eta,             "recoz_eta/f");
+    outTree->Branch("recoz_phi",           &recoz_phi,             "recoz_phi/f");
+    outTree->Branch("recoz_mass",          &recoz_mass,            "recoz_mass/f");
 	
 	sampTree->Fill();
 
