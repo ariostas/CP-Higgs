@@ -18,6 +18,8 @@
 #include <TLorentzVector.h>
 #include <TVector3.h>
 
+#include <TRandom3.h>
+
 #include "TMatrixDSym.h"
 #include "TVectorD.h"
 #include "TMath.h"
@@ -32,6 +34,7 @@ using namespace TMath;
 // Declare functions
 void histogram(TH1D*, const TString, TCanvas*, const TString, const TString, const TString);
 void histogram(vector<TH1D*>, vector<TString>, TCanvas*, const TString, const TString, const TString);
+void histogramS(vector<TH1D*>, vector<TString>, TCanvas*, const TString, const TString, const TString);
 void saveResults();
 void analyze(TString, Double_t, Int_t);
 Double_t deltaR(const Float_t, const Float_t, const Float_t, const Float_t);
@@ -42,11 +45,11 @@ TLorentzVector getNeut1(TLorentzVector, TLorentzVector, TLorentzVector, TLorentz
 TLorentzVector getNeut2(TLorentzVector, TLorentzVector, TLorentzVector, TLorentzVector, TLorentzVector);
 
 // Initialize histograms
-TH1D *hThetaS0 = new TH1D("hThetaS1", "hThetaS1", 20, -3.1416, 3.1416);
-TH1D *hThetaSpi4 = new TH1D("hThetaS2", "hThetaS2", 20, -3.1416, 3.1416);
-TH1D *hThetaSpi2 = new TH1D("hThetaS3", "hThetaS3", 20, -3.1416, 3.1416);
-TH1D *hThetaS3pi4 = new TH1D("hThetaS4", "hThetaS4", 20, -3.1416, 3.1416);
-TH1D *hThetaB = new TH1D("hThetaB", "hThetaB", 20, -3.1416, 3.1416);
+TH1D *hThetaS0 = new TH1D("hThetaS1", "hThetaS1", 10, -3.1416, 3.1416);
+TH1D *hThetaSpi4 = new TH1D("hThetaS2", "hThetaS2", 10, -3.1416, 3.1416);
+TH1D *hThetaSpi2 = new TH1D("hThetaS3", "hThetaS3", 10, -3.1416, 3.1416);
+TH1D *hThetaS3pi4 = new TH1D("hThetaS4", "hThetaS4", 10, -3.1416, 3.1416);
+TH1D *hThetaB = new TH1D("hThetaB", "hThetaB", 10, -3.1416, 3.1416);
 
 TH1D *hPhiS0 = new TH1D("hPhiS0", "hPhiS0", 20, -3.1416, 3.1416);
 TH1D *hPhiSpi4 = new TH1D("hPhiSpi4", "hPhiSpi4", 20, -3.1416, 3.1416);
@@ -60,6 +63,9 @@ TH1D *genhistoS3 = new TH1D("histoS3", "histoS3", 50, 0, 150);
 TH1D *genhistoS4 = new TH1D("histoS4", "histoS4", 50, 0, 150);
 TH1D *genhistoB = new TH1D("histoB", "histoB", 50, 0, 150);
 
+TH1D *genhisto1 = new TH1D("genhisto1", "genhisto1", 50, 50, 110);
+TH1D *genhisto2 = new TH1D("genhisto2", "genhisto2", 50, 50, 110);
+
 // Initialize data sets
 Dataset data0(2,10000), datapi4(2,10000), datapi2(2,10000), data3pi4(2,10000);
 vector<Dataset> datasets;
@@ -69,8 +75,8 @@ vector<Double_t> total, selection, kinematicCuts, massCuts;
 vector<Double_t> totalError, selectionError, kinematicCutsError, massCutsError;
 vector<Int_t> signalFlags;
 vector<TString> sampleNames;
-vector<TH1D*> hTheta, genhistos, hPhi;
-vector<TString> histogramNames;
+vector<TH1D*> hTheta, genhistos, hPhi, genhistos2;
+vector<TString> histogramNames, histogramNames2;
 
 /*
  * MAIN FUNCTION
@@ -97,6 +103,12 @@ vector<TString> histogramNames;
     genhistos.push_back(genhistoS2);
     genhistos.push_back(genhistoS3);
     genhistos.push_back(genhistoS4);
+
+    genhistos2.push_back(genhisto1);
+    genhistos2.push_back(genhisto2);
+
+    histogramNames2.push_back("Real");
+    histogramNames2.push_back("From jets/leptons");
 
     histogramNames.push_back("Backgrounds");
     histogramNames.push_back("Signal (#Delta=0)");
@@ -160,7 +172,7 @@ void analyze(TString inputfile, Double_t crossSection, Int_t samp)
 
     cout << inputfile;
 
-    Double_t wrong=0, totalE=0;
+    vector<vector<Double_t> > finalEvents;
 
     // Set up storage variables
     Float_t genTau1_pt, genTau2_pt;
@@ -195,15 +207,12 @@ void analyze(TString inputfile, Double_t crossSection, Int_t samp)
     // Z
     Float_t z_pt, z_eta, z_phi, z_mass;
 
-    // Reco Z
-    Float_t recoz_pt, recoz_eta, recoz_phi, recoz_mass;
-
     Float_t eventWeight;
 
     TLorentzVector vTau1Sol1, vTau1Sol2, vTau2Sol1, vTau2Sol2, vcpion1, vcpion2, vnpion1, vnpion2, vHiggs, vrho1, vrho2;
     UInt_t nProngTau1=0, nProngTau2=0, nLeptons=0, zToLep=0;
 
-    Double_t thetaSol1, thetaSol2;
+    Double_t thetaSol1=0, thetaSol2=0;
 
     TFile* infile = new TFile(inputFileTemp);
     assert(infile);
@@ -259,10 +268,6 @@ void analyze(TString inputfile, Double_t crossSection, Int_t samp)
     intree->SetBranchAddress("z_eta",           &z_eta);
     intree->SetBranchAddress("z_phi",           &z_phi);
     intree->SetBranchAddress("z_mass",          &z_mass);
-    intree->SetBranchAddress("recoz_pt",        &recoz_pt);
-    intree->SetBranchAddress("recoz_eta",       &recoz_eta);
-    intree->SetBranchAddress("recoz_phi",       &recoz_phi);
-    intree->SetBranchAddress("recoz_mass",      &recoz_mass);
 
     Double_t tempSelection=0, tempSelectionError=0;
 
@@ -271,7 +276,6 @@ void analyze(TString inputfile, Double_t crossSection, Int_t samp)
         intree->GetEntry(iEntry);
 
         if(pions1_pt==0 || pions2_pt==0 || neutpions1_pt==0 || neutpions2_pt==0 || nProngTau1!=1 || nProngTau2!=1) continue;
-        if(genTau1_pt < 20 || genTau2_pt < 20) continue;
 
         // Charged pions 4-vectors
         vcpion1.SetPtEtaPhiM(pions1_pt, pions1_eta, pions1_phi, pions1_mass);
@@ -297,21 +301,22 @@ void analyze(TString inputfile, Double_t crossSection, Int_t samp)
         }
 
         TLorentzVector vInit;
-        vInit.SetPtEtaPhiE(0,0,0,240);
+        vInit.SetPxPyPzE(0,0,0,240);
         vZ = v1 + v2;
+
+        // If the event has a generated Z use its real 4-vector
         if(z_pt>0.01) vZ.SetPtEtaPhiM(z_pt, z_eta, z_phi, z_mass);
 
         vHiggs = vInit-vZ;
 
-        //vTau1Sol1.SetPtEtaPhiM(genTau1_pt, genTau1_eta, genTau1_phi, genTau1_mass);
-        //vTau2Sol1.SetPtEtaPhiM(genTau2_pt, genTau2_eta, genTau2_phi, genTau2_mass);
+        // Scale down the backgrounds to simulate a cut on the mass of the Higgs.
+        if(signalFlags.at(samp)==0) eventWeight/=2.0;
 
-        //TLorentzVector vNeutrino1 = vTau1Sol1 - vrho1;
-        //TLorentzVector vNeutrino2 = vTau2Sol1 - vrho2;
+        //if(vHiggs.M() < 120) continue;
+        //if(vHiggs.Pt() > 55) continue;
 
-        //cout << vTau1Sol1.E() << " " << vrho1.E() <<  endl;
-
-        //cout << "Real  :" << vNeutrino1.E() << " " << vNeutrino1.X() << " " << vNeutrino1.Y() << " " << vNeutrino1.Z() << endl;
+        //if(deltaR(vrho1.Eta(), vrho2.Eta(), vrho1.Phi(), vrho2.Phi()) < 2.25) continue;
+        //if(deltaR(v1.Eta(), v2.Eta(), v1.Phi(), v2.Phi()) < 2.0) continue;
 
         TLorentzVector vNeutrino1Sol1 = getNeut1(vZ, vInit, vrho1, vrho2, 1);
         TLorentzVector vNeutrino2Sol1 = getNeut2(vrho1, vrho2, vNeutrino1Sol1, vZ, vInit);
@@ -319,8 +324,7 @@ void analyze(TString inputfile, Double_t crossSection, Int_t samp)
         TLorentzVector vNeutrino1Sol2 = getNeut1(vZ, vInit, vrho1, vrho2, 2);
         TLorentzVector vNeutrino2Sol2 = getNeut2(vrho1, vrho2, vNeutrino1Sol2, vZ, vInit);
 
-        //cout << "Reco1 :" << vNeutrino1Sol1.E() << " " << vNeutrino1Sol1.X() << " " << vNeutrino1Sol1.Y() << " " << vNeutrino1Sol1.Z() << endl;
-        //cout << "Reco2 :" << vNeutrino1Sol2.E() << " " << vNeutrino1Sol2.X() << " " << vNeutrino1Sol2.Y() << " " << vNeutrino1Sol2.Z() << endl << endl;
+        //if(vNeutrino1Sol1.M() < -20 || vNeutrino2Sol1.M() < -20 || vNeutrino1Sol2.M() < -20 || vNeutrino2Sol2.M() < -20) continue;
 
         vTau1Sol1 = vrho1 + vNeutrino1Sol1;
         vTau2Sol1 = vrho2 + vNeutrino2Sol1;
@@ -328,8 +332,9 @@ void analyze(TString inputfile, Double_t crossSection, Int_t samp)
         vTau1Sol2 = vrho1 + vNeutrino1Sol2;
         vTau2Sol2 = vrho2 + vNeutrino2Sol2;
 
-        vTau1Sol1.SetPtEtaPhiM(genTau1_pt, genTau1_eta, genTau1_phi, genTau1_mass);
-        vTau2Sol1.SetPtEtaPhiM(genTau2_pt, genTau2_eta, genTau2_phi, genTau2_mass);
+        //if(vTau1Sol1.M() < -10 || vTau2Sol1.M() < -10 || vTau1Sol2.M() < -10 || vTau2Sol2.M() < -10) continue;
+        if(vTau1Sol1.Pt() < 20 || vTau2Sol1.Pt() < 20 || vTau1Sol2.Pt() < 20 || vTau2Sol2.Pt() < 20) continue;
+        if(vTau1Sol1.Pt() > 90 || vTau2Sol1.Pt() > 90 || vTau1Sol2.Pt() > 90 || vTau2Sol2.Pt() > 90) continue;
 
         // Compute theta variable
         thetaSol1 = getTheta(vcpion1, vnpion1, vcpion2, vnpion2, vTau1Sol1, vTau2Sol1);
@@ -340,28 +345,32 @@ void analyze(TString inputfile, Double_t crossSection, Int_t samp)
         phiSol1 = getPhi(vcpion1, vnpion1, vcpion2, vnpion2, vTau1Sol1, vTau2Sol1);
         phiSol2 = getPhi(vcpion1, vnpion1, vcpion2, vnpion2, vTau1Sol2, vTau2Sol2);
 
+        // Check whether theta variable is well defined
         if(thetaSol1 != thetaSol1 || thetaSol2 != thetaSol2) continue;
 
         // Fill histogram for theta variable
         hTheta.at(signalFlags.at(samp))->Fill(thetaSol1);
-        //hTheta.at(signalFlags.at(samp))->Fill(thetaSol2);
+        hTheta.at(signalFlags.at(samp))->Fill(thetaSol2);
 
+        // Check whether phi variable is well defined
         if(phiSol1 != phiSol1 || phiSol2 != phiSol2) continue;
 
+        // Fill histogram for phi variable
         hPhi.at(signalFlags.at(samp))->Fill(phiSol1);
-        //hPhi.at(signalFlags.at(samp))->Fill(phiSol2);
+        hPhi.at(signalFlags.at(samp))->Fill(phiSol2);
 
-        if(vHiggs.Pt() == vHiggs.Pt()) genhistos.at(signalFlags.at(samp))->Fill(vHiggs.Pt());
+        genhistos.at(signalFlags.at(samp))->Fill(vNeutrino1Sol1.Pt());
 
         vector<double> vars1, vars2;
         vars1.push_back(thetaSol1);
-        //vars1.push_back(phiSol1);
-        vars1.push_back(eventWeight/Double_t(10));
+        vars1.push_back(eventWeight/10.0);
         vars2.push_back(thetaSol2);
-        //vars2.push_back(phiSol2);
-        vars2.push_back(eventWeight/Double_t(10));
+        vars2.push_back(eventWeight/10.0);
 
-        if(signalFlags.at(samp)==0 && iEntry < intree->GetEntries()/100 && thetaSol1 == thetaSol1){
+        finalEvents.push_back(vars1);
+        finalEvents.push_back(vars2);
+
+        if(signalFlags.at(samp)==0 && iEntry < intree->GetEntries()/10.0){
             datasets.at(0).add(vars1);
             datasets.at(0).add(vars2);
             datasets.at(1).add(vars1);
@@ -371,8 +380,7 @@ void analyze(TString inputfile, Double_t crossSection, Int_t samp)
             datasets.at(3).add(vars1);
             datasets.at(3).add(vars2);
         }
-        else if(iEntry < intree->GetEntries()/100 && thetaSol1 == thetaSol1)
-        {
+        else if(iEntry < intree->GetEntries()/10.0){
             datasets.at(signalFlags.at(samp)-1).add(vars1);
             datasets.at(signalFlags.at(samp)-1).add(vars2);
         }
@@ -392,8 +400,6 @@ void analyze(TString inputfile, Double_t crossSection, Int_t samp)
     cout << (signalFlags.at(samp) ? "\033[1;32m" : (out == "0       " ?  "\033[1;34m": "\033[1;31m")) << out << "\033[0m" << " events passed all cuts" << endl;
 
     infile->Close();
-
-    cout << wrong/totalE << endl;
 }
 
 /*
@@ -412,11 +418,10 @@ void saveResults()
     vector<TH1D*> hp;
     hp.push_back(hp1); hp.push_back(hp2); hp.push_back(hp3); hp.push_back(hp4);
     vector<TString> hpNames;
-    hpNames.push_back("0 and 0"); hpNames.push_back("0 and pi/4"); hpNames.push_back("0 and pi/2"); hpNames.push_back("0 and 3pi/4");
+    hpNames.push_back("Delta=0 and Delta=0"); hpNames.push_back("Delta=0 and Delta=pi/4"); hpNames.push_back("Delta=0 and Delta=pi/2"); hpNames.push_back("Delta=0 and Delta=3pi/4");
 
     for(Int_t i=0; i<4; i++){
         Double_t tval = calcTW(datasets.at(0),datasets.at(i));
-        cout << "T of " << hpNames.at(i) << ": " << tval << endl;
 
         Double_t ptval;
         srand(22);
@@ -426,8 +431,13 @@ void saveResults()
             ptval = permCalcTW(datasets.at(0),datasets.at(i));
             hp.at(i)->Fill(ptval);
             if(ptval > tval) pval++;
+            if(p!=0) cout << "\e[A";
+            cout << "[" << string((p+1)/(nperm/50),'-') << string(50-(p+1)/(nperm/50),' ') << "]  " << 100*(p+1)/nperm << "\% completed.   Permutation " << p+1 << " of " << nperm << endl;
         }
-        cout << "p of " << hpNames.at(i) << ": " << pval/Double_t(nperm) << endl << endl;
+        Double_t p = pval/Double_t(nperm), pError = Sqrt(p*(1-p)/Double_t(nperm));
+
+        cout << "T of " << hpNames.at(i) << ": " << tval << endl;
+        cout << "p of " << hpNames.at(i) << ": " << p  << " +- " << pError << endl << endl;
 
     }
 
@@ -435,22 +445,15 @@ void saveResults()
 
     gStyle->SetOptStat(kFALSE);
 
-    histogram(hTheta, histogramNames, c1, "#Theta variable", "Fraction", "Theta.jpg");
-    histogram(hPhi, histogramNames, c1, "#varphi^{*} variable", "Fraction", "Phi.jpg");
-    histogram(genhistos, histogramNames, c1, "H mass", "Fraction", "histo.jpg");
+    histogram(hTheta, histogramNames, c1, "#Theta variable", "Fraction", "Theta");
+    histogram(hPhi, histogramNames, c1, "#varphi^{*} variable", "Fraction", "Phi");
+    histogram(genhistos, histogramNames, c1, "H mass", "Fraction", "histo");
+    histogram(genhistos2, histogramNames2, c1, "Z mass", "Fraction", "h3");
 
     for(Int_t i=0; i<4; i++){
         TString filename="p_"; filename+=i; filename+=".jpg";
         histogram(hp.at(i), hpNames.at(i), c1, "p distribution", "Fraction", filename);
     }
-
-    /*TFile f("histos.root","new");
-    hThetaS0->Write();
-    hThetaSpi4->Write();
-    hThetaSpi2->Write();
-    hThetaS3pi4->Write();
-    hThetaB->Write();
-    f.Close();*/
 
     cout << "\n\n\nProcess finished\nPrinting results...\n\n" << "\033[1;34mResults\033[0m\n\n";
     
@@ -528,7 +531,63 @@ void histogram(vector<TH1D*> histos, vector<TString> histNames, TCanvas *can, co
     }
     leg->Draw();
 
-    can->SaveAs(name);
+    TString filename=name; filename+=".jpg";
+
+    can->SaveAs(filename);
+}
+
+/*
+ * FUNCTION FOR SAVING MULTIPLE HISTOGRAMS SEPARATELY
+ */
+
+void histogramS(vector<TH1D*> histos, vector<TString> histNames, TCanvas *can, const TString xTitle, const TString yTitle, const TString name){   
+    
+    if(histos.size()!=histNames.size()){ cout << "Number of histograms and names don't match." << endl; return;}
+
+    Double_t max0=0, min0=1;
+
+    histos.at(0)->Scale(Double_t(1)/histos.at(0)->Integral());
+    max0=histos.at(0)->GetMaximum();
+    min0=histos.at(0)->GetMinimum();
+
+    for(Int_t i=1; i<histos.size(); i++){
+        Double_t max=max0, min=min0;
+        histos.at(i)->Scale(Double_t(1)/histos.at(i)->Integral());
+        if(histos.at(i)->GetMaximum()>max0) max=histos.at(i)->GetMaximum();
+        if(histos.at(i)->GetMinimum()<min0) min=histos.at(i)->GetMinimum();
+
+        max*=1.1;
+        min*=0.9; 
+
+        histos.at(0)->SetMaximum(max);
+        histos.at(0)->SetMinimum(min);
+        histos.at(0)->SetLineWidth(3);
+        histos.at(0)->SetLineColor(kRed);
+
+        histos.at(i)->SetMaximum(max);
+        histos.at(i)->SetMinimum(min);
+        histos.at(i)->SetLineWidth(3);
+        histos.at(i)->SetLineColor(kBlue);
+
+        histos.at(0)->GetXaxis()->SetTitle(xTitle);
+        histos.at(0)->GetYaxis()->SetTitle(yTitle);
+        histos.at(0)->SetTitle("");
+        histos.at(0)->Draw();
+
+        histos.at(i)->Draw("same");
+
+        TLegend *leg = new TLegend(0.605,0.675,0.885,0.875);
+        leg->SetTextFont(72);
+        leg->SetTextSize(0.04);
+        leg->AddEntry(histos.at(0),histNames.at(0),"l");
+        leg->AddEntry(histos.at(i),histNames.at(i),"l");
+        leg->Draw();
+
+        TString filename=name; filename+="_"; filename+=i; filename+=".jpg";
+
+        can->SaveAs(filename);
+
+    }
 }
 
 /*

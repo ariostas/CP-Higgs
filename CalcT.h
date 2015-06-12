@@ -4,6 +4,11 @@ double wtFcn(int nevts, double d){
   return -log(d+eps);
 }
 
+double wtFcnW(double totWeight, double d){
+  double eps = 10.0/totWeight;
+  return -log(d+eps);
+}
+
 double calcIntegral(Dataset &d1, Dataset &d2, bool same, int index=-1){
   double integral = 0;
   int n1 = d1.size(), n2 = d2.size();
@@ -75,7 +80,7 @@ double calcIntegralW(Dataset &d1, Dataset &d2, bool same, int index=-1){
     if(same) min = ev1+1;
     for(int ev2 = min; ev2 < n2; ev2++){
       double dist = d1.distanceW(ev1,d2,ev2);
-      integral += d1.get(ev1,d1.ndim()-1)*d2.get(ev2,d2.ndim()-1)*wtFcn(n1+n2,dist);
+      integral += d1.get(ev1,d1.ndim()-1)*d2.get(ev2,d2.ndim()-1)*wtFcnW(totWeight1+totWeight2,dist);
     }
   }
   double norm = totWeight1*totWeight2;
