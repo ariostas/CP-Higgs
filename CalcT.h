@@ -5,7 +5,7 @@ double wtFcn(int nevts, double d){
 }
 
 double wtFcnW(double totWeight, double d){
-  double eps = 10.0/totWeight;
+  double eps = 0.1/totWeight;
   return -log(d+eps);
 }
 

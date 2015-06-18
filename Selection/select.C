@@ -22,11 +22,11 @@
 
 #endif
 
-Float_t deltaR( const Float_t eta1, const Float_t eta2, const Float_t phi1, const Float_t phi2 );
+Double_t deltaR( const Double_t eta1, const Double_t eta2, const Double_t phi1, const Double_t phi2 );
 
 using namespace baconhep;
 
-void select(const TString sample="", const TString tempinput="ZH_tautau_rhorho_CP0_mad.root", const Float_t xsec = 1,
+void select(const TString sample="", const TString tempinput="ZH_tautau_rhorho_CP0_mad.root", const Double_t xsec = 1,
     const Int_t eosflag = 0)
 {
     TString input;
@@ -38,7 +38,7 @@ void select(const TString sample="", const TString tempinput="ZH_tautau_rhorho_C
     TChain chain("Events");
     chain.Add(input);
 
-    const Float_t DR=0.4;
+    const Double_t DR=0.4;
 
     // Data structures to store info from TTrees
     TGenEventInfo *info = new TGenEventInfo();
@@ -62,145 +62,124 @@ void select(const TString sample="", const TString tempinput="ZH_tautau_rhorho_C
 
     TTree *outtree = new TTree("Events", "Events");
 
-    Float_t eventWeight;
+    Double_t eventWeight;
 
-    UInt_t nProngTau1=0, nProngTau2=0, nLeptons=0, zToLep=0;
+    UInt_t ncpions1=0, ncpions2=0, nnpions1=0, nnpions2=0, nLeptons=0;
+    Int_t zToLep=0;
 
     // Jets matched to gen taus
-    Float_t jetTau1_pt, jetTau2_pt;
-    Float_t jetTau1_eta, jetTau2_eta;
-    Float_t jetTau1_phi, jetTau2_phi;
-    Float_t jetTau1_mass, jetTau2_mass;
+    Double_t jetTau1_pt, jetTau2_pt;
+    Double_t jetTau1_eta, jetTau2_eta;
+    Double_t jetTau1_phi, jetTau2_phi;
+    Double_t jetTau1_mass, jetTau2_mass;
 
     // Gen taus
-    Float_t genTau1_pt, genTau2_pt;
-    Float_t genTau1_eta, genTau2_eta;
-    Float_t genTau1_phi, genTau2_phi;
-    Float_t genTau1_mass, genTau2_mass;
+    Double_t genTau1_pt, genTau2_pt;
+    Double_t genTau1_eta, genTau2_eta;
+    Double_t genTau1_phi, genTau2_phi;
+    Double_t genTau1_mass, genTau2_mass;
 
     // Visible taus (taus minus neutrino)
-    Float_t visTau1_pt, visTau2_pt;
-    Float_t visTau1_eta, visTau2_eta;
-    Float_t visTau1_phi, visTau2_phi;
-    Float_t visTau1_mass, visTau2_mass;
+    Double_t visTau1_pt, visTau2_pt;
+    Double_t visTau1_eta, visTau2_eta;
+    Double_t visTau1_phi, visTau2_phi;
+    Double_t visTau1_mass, visTau2_mass;
 
     // Charged pions coming from taus
-    Float_t pions1_pt, pions2_pt;
-    Float_t pions1_eta, pions2_eta;
-    Float_t pions1_phi, pions2_phi;
-    Float_t pions1_mass, pions2_mass;
+    Double_t cpions1_pt, cpions2_pt;
+    Double_t cpions1_eta, cpions2_eta;
+    Double_t cpions1_phi, cpions2_phi;
+    Double_t cpions1_mass, cpions2_mass;
 
     // Neutral pions coming from taus
-    Float_t neutpions1_pt, neutpions2_pt;
-    Float_t neutpions1_eta, neutpions2_eta;
-    Float_t neutpions1_phi, neutpions2_phi;
-    Float_t neutpions1_mass, neutpions2_mass;
+    Double_t npions1_pt, npions2_pt;
+    Double_t npions1_eta, npions2_eta;
+    Double_t npions1_phi, npions2_phi;
+    Double_t npions1_mass, npions2_mass;
 
-    // Particles from Z
-    Float_t z1_pt, z2_pt;
-    Float_t z1_eta, z2_eta;
-    Float_t z1_phi, z2_phi;
-    Float_t z1_mass, z2_mass;
-
-    // Jets matched to particles from Z
-    Float_t jetz1_pt, jetz2_pt;
-    Float_t jetz1_eta, jetz2_eta;
-    Float_t jetz1_phi, jetz2_phi;
-    Float_t jetz1_mass, jetz2_mass;
+    // Particles/jets from Z
+    Double_t z1_pt, z2_pt;
+    Double_t z1_eta, z2_eta;
+    Double_t z1_phi, z2_phi;
+    Double_t z1_mass, z2_mass;
 
     // Z
-    Float_t z_pt, z_eta, z_phi, z_mass;
+    Double_t z_pt, z_eta, z_phi, z_mass;
 
-    // Reco Z
-    Float_t recoz_pt, recoz_eta, recoz_phi, recoz_mass;
-
-    outtree->Branch("eventWeight",      &eventWeight,       "eventWeight/f");   // event weight from cross-section and Event->Weight
+    outtree->Branch("eventWeight",      &eventWeight,       "eventWeight/D");   // event weight from cross-section and Event->Weight
 
     outtree->Branch("nLeptons",         &nLeptons,          "nLeptons/i");      // number of leptons
-    outtree->Branch("nProngTau1",       &nProngTau1,        "nProngTau1/i");
-    outtree->Branch("nProngTau2",       &nProngTau2,        "nProngTau2/i");
+    outtree->Branch("ncpions1",         &ncpions1,          "ncpions1/i");
+    outtree->Branch("ncpions2",         &ncpions2,          "ncpions2/i");
+    outtree->Branch("nnpions1",         &nnpions1,          "nnpions1/i");
+    outtree->Branch("nnpions2",         &nnpions2,          "nnpions2/i");
 
-    outtree->Branch("zToLep",           &zToLep,            "zToLep/i");
+    outtree->Branch("zToLep",           &zToLep,            "zToLep/I");
 
-    outtree->Branch("jetTau1_pt",       &jetTau1_pt,        "jetTau1_pt/f");    // pt(Tau1)
-    outtree->Branch("jetTau1_eta",      &jetTau1_eta,       "jetTau1_eta/f");   // eta(Tau1)
-    outtree->Branch("jetTau1_phi",      &jetTau1_phi,       "jetTau1_phi/f");   // phi(Tau1)
-    outtree->Branch("jetTau1_mass",     &jetTau1_mass,      "jetTau1_mass/f");  // m(Tau1)
+    outtree->Branch("jetTau1_pt",       &jetTau1_pt,        "jetTau1_pt/D");    // pt(Tau1)
+    outtree->Branch("jetTau1_eta",      &jetTau1_eta,       "jetTau1_eta/D");   // eta(Tau1)
+    outtree->Branch("jetTau1_phi",      &jetTau1_phi,       "jetTau1_phi/D");   // phi(Tau1)
+    outtree->Branch("jetTau1_mass",     &jetTau1_mass,      "jetTau1_mass/D");  // m(Tau1)
 
-    outtree->Branch("jetTau2_pt",       &jetTau2_pt,        "jetTau2_pt/f");    // pt(Tau2)
-    outtree->Branch("jetTau2_eta",      &jetTau2_eta,       "jetTau2_eta/f");   // eta(Tau2)
-    outtree->Branch("jetTau2_phi",      &jetTau2_phi,       "jetTau2_phi/f");   // phi(Tau2)
-    outtree->Branch("jetTau2_mass",     &jetTau2_mass,      "jetTau2_mass/f");  // m(Tau2)
+    outtree->Branch("jetTau2_pt",       &jetTau2_pt,        "jetTau2_pt/D");    // pt(Tau2)
+    outtree->Branch("jetTau2_eta",      &jetTau2_eta,       "jetTau2_eta/D");   // eta(Tau2)
+    outtree->Branch("jetTau2_phi",      &jetTau2_phi,       "jetTau2_phi/D");   // phi(Tau2)
+    outtree->Branch("jetTau2_mass",     &jetTau2_mass,      "jetTau2_mass/D");  // m(Tau2)
 
-    outtree->Branch("genTau1_pt",       &genTau1_pt,        "genTau1_pt/f");    // pt(Tau1)
-    outtree->Branch("genTau1_eta",      &genTau1_eta,       "genTau1_eta/f");   // eta(Tau1)
-    outtree->Branch("genTau1_phi",      &genTau1_phi,       "genTau1_phi/f");   // phi(Tau1)
-    outtree->Branch("genTau1_mass",     &genTau1_mass,      "genTau1_mass/f");  // m(Tau1)
+    outtree->Branch("genTau1_pt",       &genTau1_pt,        "genTau1_pt/D");    // pt(Tau1)
+    outtree->Branch("genTau1_eta",      &genTau1_eta,       "genTau1_eta/D");   // eta(Tau1)
+    outtree->Branch("genTau1_phi",      &genTau1_phi,       "genTau1_phi/D");   // phi(Tau1)
+    outtree->Branch("genTau1_mass",     &genTau1_mass,      "genTau1_mass/D");  // m(Tau1)
 
-    outtree->Branch("genTau2_pt",       &genTau2_pt,        "genTau2_pt/f");    // pt(Tau2)
-    outtree->Branch("genTau2_eta",      &genTau2_eta,       "genTau2_eta/f");   // eta(Tau2)
-    outtree->Branch("genTau2_phi",      &genTau2_phi,       "genTau2_phi/f");   // phi(Tau2)
-    outtree->Branch("genTau2_mass",     &genTau2_mass,      "genTau2_mass/f");  // m(Tau2)
+    outtree->Branch("genTau2_pt",       &genTau2_pt,        "genTau2_pt/D");    // pt(Tau2)
+    outtree->Branch("genTau2_eta",      &genTau2_eta,       "genTau2_eta/D");   // eta(Tau2)
+    outtree->Branch("genTau2_phi",      &genTau2_phi,       "genTau2_phi/D");   // phi(Tau2)
+    outtree->Branch("genTau2_mass",     &genTau2_mass,      "genTau2_mass/D");  // m(Tau2)
 
-    outtree->Branch("visTau1_pt",       &visTau1_pt,        "visTau1_pt/f");    // pt(Tau1)
-    outtree->Branch("visTau1_eta",      &visTau1_eta,       "visTau1_eta/f");   // eta(Tau1)
-    outtree->Branch("visTau1_phi",      &visTau1_phi,       "visTau1_phi/f");   // phi(Tau1)
-    outtree->Branch("visTau1_mass",     &visTau1_mass,      "visTau1_mass/f");  // m(Tau1)
+    outtree->Branch("visTau1_pt",       &visTau1_pt,        "visTau1_pt/D");    // pt(Tau1)
+    outtree->Branch("visTau1_eta",      &visTau1_eta,       "visTau1_eta/D");   // eta(Tau1)
+    outtree->Branch("visTau1_phi",      &visTau1_phi,       "visTau1_phi/D");   // phi(Tau1)
+    outtree->Branch("visTau1_mass",     &visTau1_mass,      "visTau1_mass/D");  // m(Tau1)
 
-    outtree->Branch("visTau2_pt",       &visTau2_pt,        "visTau2_pt/f");    // pt(Tau2)
-    outtree->Branch("visTau2_eta",      &visTau2_eta,       "visTau2_eta/f");   // eta(Tau2)
-    outtree->Branch("visTau2_phi",      &visTau2_phi,       "visTau2_phi/f");   // phi(Tau2)
-    outtree->Branch("visTau2_mass",     &visTau2_mass,      "visTau2_mass/f");  // m(Tau2)
+    outtree->Branch("visTau2_pt",       &visTau2_pt,        "visTau2_pt/D");    // pt(Tau2)
+    outtree->Branch("visTau2_eta",      &visTau2_eta,       "visTau2_eta/D");   // eta(Tau2)
+    outtree->Branch("visTau2_phi",      &visTau2_phi,       "visTau2_phi/D");   // phi(Tau2)
+    outtree->Branch("visTau2_mass",     &visTau2_mass,      "visTau2_mass/D");  // m(Tau2)
 
-    outtree->Branch("pions1_pt",        &pions1_pt,          "pions1_pt/f");
-    outtree->Branch("pions1_eta",       &pions1_eta,         "pions1_eta/f");
-    outtree->Branch("pions1_phi",       &pions1_phi,         "pions1_phi/f");
-    outtree->Branch("pions1_mass",      &pions1_mass,        "pions1_mass/f");
+    outtree->Branch("cpions1_pt",       &cpions1_pt,        "cpions1_pt/D");
+    outtree->Branch("cpions1_eta",      &cpions1_eta,       "cpions1_eta/D");
+    outtree->Branch("cpions1_phi",      &cpions1_phi,       "cpions1_phi/D");
+    outtree->Branch("cpions1_mass",     &cpions1_mass,      "cpions1_mass/D");
 
-    outtree->Branch("pions2_pt",        &pions2_pt,          "pions2_pt/f");
-    outtree->Branch("pions2_eta",       &pions2_eta,         "pions2_eta/f");
-    outtree->Branch("pions2_phi",       &pions2_phi,         "pions2_phi/f");
-    outtree->Branch("pions2_mass",      &pions2_mass,        "pions2_mass/f");
+    outtree->Branch("cpions2_pt",       &cpions2_pt,        "pions2_pt/D");
+    outtree->Branch("cpions2_eta",      &cpions2_eta,       "pions2_eta/D");
+    outtree->Branch("cpions2_phi",      &cpions2_phi,       "pions2_phi/D");
+    outtree->Branch("cpions2_mass",     &cpions2_mass,      "pions2_mass/D");
 
-    outtree->Branch("neutpions1_pt",    &neutpions1_pt,      "neutpions1_pt/f");
-    outtree->Branch("neutpions1_eta",   &neutpions1_eta,     "neutpions1_eta/f");
-    outtree->Branch("neutpions1_phi",   &neutpions1_phi,     "neutpions1_phi/f");
-    outtree->Branch("neutpions1_mass",  &neutpions1_mass,    "neutpions1_mass/f");
+    outtree->Branch("npions1_pt",       &npions1_pt,        "npions1_pt/D");
+    outtree->Branch("npions1_eta",      &npions1_eta,       "npions1_eta/D");
+    outtree->Branch("npions1_phi",      &npions1_phi,       "npions1_phi/D");
+    outtree->Branch("npions1_mass",     &npions1_mass,      "npions1_mass/D");
 
-    outtree->Branch("neutpions2_pt",    &neutpions2_pt,      "neutpions2_pt/f");
-    outtree->Branch("neutpions2_eta",   &neutpions2_eta,     "neutpions2_eta/f");
-    outtree->Branch("neutpions2_phi",   &neutpions2_phi,     "neutpions2_phi/f");
-    outtree->Branch("neutpions2_mass",  &neutpions2_mass,    "neutpions2_mass/f");
+    outtree->Branch("npions2_pt",       &npions2_pt,        "npions2_pt/D");
+    outtree->Branch("npions2_eta",      &npions2_eta,       "npions2_eta/D");
+    outtree->Branch("npions2_phi",      &npions2_phi,       "npions2_phi/D");
+    outtree->Branch("npions2_mass",     &npions2_mass,      "npions2_mass/D");
 
-    outtree->Branch("z1_pt",            &z1_pt,              "z1_pt/f");
-    outtree->Branch("z1_eta",           &z1_eta,             "z1_eta/f");
-    outtree->Branch("z1_phi",           &z1_phi,             "z1_phi/f");
-    outtree->Branch("z1_mass",          &z1_mass,            "z1_mass/f");
+    outtree->Branch("z1_pt",            &z1_pt,             "z1_pt/D");
+    outtree->Branch("z1_eta",           &z1_eta,            "z1_eta/D");
+    outtree->Branch("z1_phi",           &z1_phi,            "z1_phi/D");
+    outtree->Branch("z1_mass",          &z1_mass,           "z1_mass/D");
 
-    outtree->Branch("z2_pt",            &z2_pt,              "z2_pt/f");
-    outtree->Branch("z2_eta",           &z2_eta,             "z2_eta/f");
-    outtree->Branch("z2_phi",           &z2_phi,             "z2_phi/f");
-    outtree->Branch("z2_mass",          &z2_mass,            "z2_mass/f");
+    outtree->Branch("z2_pt",            &z2_pt,             "z2_pt/D");
+    outtree->Branch("z2_eta",           &z2_eta,            "z2_eta/D");
+    outtree->Branch("z2_phi",           &z2_phi,            "z2_phi/D");
+    outtree->Branch("z2_mass",          &z2_mass,           "z2_mass/D");
 
-    outtree->Branch("jetz1_pt",         &jetz1_pt,           "jetz1_pt/f");
-    outtree->Branch("jetz1_eta",        &jetz1_eta,          "jetz1_eta/f");
-    outtree->Branch("jetz1_phi",        &jetz1_phi,          "jetz1_phi/f");
-    outtree->Branch("jetz1_mass",       &jetz1_mass,         "jetz1_mass/f");
-
-    outtree->Branch("jetz2_pt",         &jetz2_pt,           "jetz2_pt/f");
-    outtree->Branch("jetz2_eta",        &jetz2_eta,          "jetz2_eta/f");
-    outtree->Branch("jetz2_phi",        &jetz2_phi,          "jetz2_phi/f");
-    outtree->Branch("jetz2_mass",       &jetz2_mass,         "jetz2_mass/f");
-
-    outtree->Branch("z_pt",            &z_pt,              "z_pt/f");
-    outtree->Branch("z_eta",           &z_eta,             "z_eta/f");
-    outtree->Branch("z_phi",           &z_phi,             "z_phi/f");
-    outtree->Branch("z_mass",          &z_mass,            "z_mass/f");
-
-    outtree->Branch("recoz_pt",            &recoz_pt,              "recoz_pt/f");
-    outtree->Branch("recoz_eta",           &recoz_eta,             "recoz_eta/f");
-    outtree->Branch("recoz_phi",           &recoz_phi,             "recoz_phi/f");
-    outtree->Branch("recoz_mass",          &recoz_mass,            "recoz_mass/f");
+    outtree->Branch("z_pt",             &z_pt,              "z_pt/D");
+    outtree->Branch("z_eta",            &z_eta,             "z_eta/D");
+    outtree->Branch("z_phi",            &z_phi,             "z_phi/D");
+    outtree->Branch("z_mass",           &z_mass,            "z_mass/D");
 
     for (Int_t i=0; i<chain.GetEntries(); i++)
     {
@@ -224,7 +203,7 @@ void select(const TString sample="", const TString tempinput="ZH_tautau_rhorho_C
         Int_t iZ=-1;
 
         // Reset variables
-        nLeptons=nProngTau1=nProngTau2=zToLep=0;
+        nLeptons=ncpions1=ncpions2=nnpions1=nnpions2=zToLep=0;
 
         jetTau1_pt=jetTau1_eta=jetTau1_phi=jetTau1_mass=0;
         jetTau2_pt=jetTau2_eta=jetTau2_phi=jetTau2_mass=0;
@@ -235,58 +214,118 @@ void select(const TString sample="", const TString tempinput="ZH_tautau_rhorho_C
         visTau1_pt=visTau1_eta=visTau1_phi=visTau1_mass=0;
         visTau2_pt=visTau2_eta=visTau2_phi=visTau2_mass=0;
 
-        pions1_pt=pions1_eta=pions1_phi=pions1_mass=0;
-        pions2_pt=pions2_eta=pions2_phi=pions2_mass=0;
+        cpions1_pt=cpions1_eta=cpions1_phi=cpions1_mass=0;
+        cpions2_pt=cpions2_eta=cpions2_phi=cpions2_mass=0;
 
-        neutpions1_pt=neutpions1_eta=neutpions1_phi=neutpions1_mass=0;
-        neutpions2_pt=neutpions2_eta=neutpions2_phi=neutpions2_mass=0;
+        npions1_pt=npions1_eta=npions1_phi=npions1_mass=0;
+        npions2_pt=npions2_eta=npions2_phi=npions2_mass=0;
 
         z1_pt=z1_eta=z1_phi=z1_mass=0;
         z2_pt=z2_eta=z2_phi=z2_mass=0;
 
-        jetz1_pt=jetz1_eta=jetz1_phi=jetz1_mass=0;
-        jetz2_pt=jetz2_eta=jetz2_phi=jetz2_mass=0;
-
         z_pt=z_eta=z_phi=z_mass=0;
-        recoz_pt=recoz_eta=recoz_phi=recoz_mass=0;
 
-        eventWeight=xsec*10000000*0.66*0.66;
+        eventWeight=xsec*1000.0;
+
+        bool hasH=false, hasZ=false;
+
+        for (Int_t j=0; j<part->GetEntries(); j++)
+        {
+            const TGenParticle* genloop = (TGenParticle*) ((*part)[j]);
+            if(abs(genloop->pdgId)==25) hasH = true;
+            if(abs(genloop->pdgId)==23) hasZ = true;
+        }
+
+        Int_t tausParent=-1;
+        for (Int_t j=0; j<part->GetEntries(); j++)
+        {
+            const TGenParticle* genloop = (TGenParticle*) ((*part)[j]);
+            Int_t parentPdg=abs(dynamic_cast<TGenParticle *>(part->At(genloop->parent>-1 ? genloop->parent : 0))->pdgId);
+
+            if(hasH){
+                if (abs(genloop->pdgId)==15)
+                {
+                    if (iTau1==-1 && parentPdg==25)
+                    {
+                        iTau1=j;
+                        tausParent=genloop->parent;
+                    }
+                    else if (genloop->parent==iTau1)
+                    {
+                        iTau1=j;
+                    }
+                    else if (iTau2==-1 && parentPdg==25 && tausParent==genloop->parent)
+                    {
+                        iTau2=j;
+                    }
+                    else if (genloop->parent==iTau2)
+                    {
+                        iTau2=j;
+                    }
+                }
+            }
+
+            else if(hasZ){
+                if (abs(genloop->pdgId)==15)
+                {
+                    if (iTau1==-1 && parentPdg==23)
+                    {
+                        iTau1=j;
+                        tausParent=genloop->parent;
+                    }
+                    else if (genloop->parent==iTau1)
+                    {
+                        iTau1=j;
+                    }
+                    else if (iTau2==-1 && parentPdg==23 && tausParent==genloop->parent)
+                    {
+                        iTau2=j;
+                    }
+                    else if (genloop->parent==iTau2)
+                    {
+                        iTau2=j;
+                    }
+                }
+            }
+
+            else{
+                if (abs(genloop->pdgId)==15)
+                {
+                    if (iTau1==-1)
+                    {
+                        iTau1=j;
+                        tausParent=genloop->parent;
+                    }
+                    else if (genloop->parent==iTau1)
+                    {
+                        iTau1=j;
+                    }
+                    else if (iTau2==-1 && tausParent==genloop->parent)
+                    {
+                        iTau2=j;
+                    }
+                    else if (genloop->parent==iTau2)
+                    {
+                        iTau2=j;
+                    }
+                }
+            }
+        }
+
+        if (iTau1==-1 || iTau2==-1) continue;
 
         Int_t isLep=0;
         for (Int_t j=0; j<part->GetEntries(); j++)
         {
             const TGenParticle* genloop = (TGenParticle*) ((*part)[j]);
-            Int_t parentPdg=dynamic_cast<TGenParticle *>(part->At(genloop->parent>-1 ? genloop->parent : 0))->pdgId;
+            Int_t parentPdg=abs(dynamic_cast<TGenParticle *>(part->At(genloop->parent>-1 ? genloop->parent : 0))->pdgId);
 
-            if (!(abs(genloop->pdgId)==15)&&!(abs(parentPdg)==15)) continue;
-            if ( (abs(genloop->pdgId)==13||abs(genloop->pdgId)==11) && (abs(parentPdg)==15) )
-            {
+            if (genloop->parent != iTau1 && genloop->parent != iTau2) continue;
+            if ((abs(genloop->pdgId)==13||abs(genloop->pdgId)==11)){
                 isLep=1;
-                continue;
-            }
-
-            if (abs(genloop->pdgId)==15)
-            {
-                if (iTau1==-1)
-                {
-                    iTau1=j;
-                }
-                else if (genloop->parent==iTau1)
-                {
-                    iTau1=j;
-                }
-                else if (iTau2==-1)
-                {
-                    iTau2=j;
-                }
-                else if (genloop->parent==iTau2)
-                {
-                    iTau2=j;
-                }
             }
         }
 
-        if (iTau2==-1) continue;
         if (isLep!=0) continue;
 
         if(dynamic_cast<TGenParticle *>(part->At(iTau1))->pdgId==15 &&  dynamic_cast<TGenParticle *>(part->At(iTau2))->pdgId==-15)
@@ -297,7 +336,7 @@ void select(const TString sample="", const TString tempinput="ZH_tautau_rhorho_C
         }
         else if(dynamic_cast<TGenParticle *>(part->At(iTau1))->pdgId==-15 &&  dynamic_cast<TGenParticle *>(part->At(iTau2))->pdgId==15)
         {
-            Int_t temp=iTau1;
+
         }
         else
         {
@@ -305,14 +344,11 @@ void select(const TString sample="", const TString tempinput="ZH_tautau_rhorho_C
             continue;
         }
 
-        vector<Int_t> tau1par, tau2par;
-        tau1par.clear(); tau2par.clear();
-
         for (Int_t j=0; j<part->GetEntries(); j++)
         {
             TGenParticle* genloop = (TGenParticle*) ((*part)[j]);
 
-            Int_t pdg=fabs(genloop->pdgId);
+            Int_t pdg=abs(genloop->pdgId);
             Int_t parent=genloop->parent;
 
             if(pdg==23){
@@ -320,24 +356,14 @@ void select(const TString sample="", const TString tempinput="ZH_tautau_rhorho_C
                     iZ=j;
                 }
                 else if(parent==iZ){
-                    //iZ=j;
+                    iZ=j;
                 }
             }
-
-            if((pdg==213 || pdg==20213) && parent==iTau1)
-            {
-                tau1par.push_back(j);
-            }
-            else if((pdg==213 || pdg==20213) && parent==iTau2)
-            {
-                tau2par.push_back(j);
-            }
-
         }
 
-        TLorentzVector pions1, pions2, neutpions1, neutpions2;
-        pions1.SetPxPyPzE(0,0,0,0); pions2.SetPxPyPzE(0,0,0,0);
-        neutpions1.SetPxPyPzE(0,0,0,0); neutpions2.SetPxPyPzE(0,0,0,0);
+        TLorentzVector cpions1, cpions2, npions1, npions2;
+        cpions1.SetPxPyPzE(0,0,0,0); cpions2.SetPxPyPzE(0,0,0,0);
+        npions1.SetPxPyPzE(0,0,0,0); npions2.SetPxPyPzE(0,0,0,0);
 
         for (Int_t j=0; j<part->GetEntries(); j++)
         {
@@ -352,17 +378,6 @@ void select(const TString sample="", const TString tempinput="ZH_tautau_rhorho_C
 
             if(parent==iTau1) parentTau=1;
             else if(parent==iTau2) parentTau=2;
-            else
-            {
-                for(UInt_t x=0; x<tau1par.size(); x++)
-                {
-                    if(parent==tau1par.at(x)) parentTau=1;
-                }
-                for(UInt_t x=0; x<tau2par.size(); x++)
-                {
-                    if(parent==tau2par.at(x)) parentTau=2;
-                }
-            }
 
             if(parentTau==0) continue;
 
@@ -372,21 +387,23 @@ void select(const TString sample="", const TString tempinput="ZH_tautau_rhorho_C
             if(parentTau==1)
             {
                 if(pdg==211){
-                    pions1+=vTemp;
-                    nProngTau1++;
+                    cpions1+=vTemp;
+                    ncpions1++;
                 }
                 else{
-                    neutpions1+=vTemp;
+                    npions1+=vTemp;
+                    nnpions1++;
                 }
             }
             else
             {
                 if(pdg==211){
-                    pions2+=vTemp;
-                    nProngTau2++;
+                    cpions2+=vTemp;
+                    ncpions2++;
                 }
                 else{
-                    neutpions2+=vTemp;
+                    npions2+=vTemp;
+                    nnpions2++;
                 }
             }
 
@@ -394,11 +411,11 @@ void select(const TString sample="", const TString tempinput="ZH_tautau_rhorho_C
 
         const TGenParticle* genTau1 = (TGenParticle*) ((*part)[iTau1]);
         TLorentzVector vGenTau1;
-        vGenTau1.SetPtEtaPhiM(genTau1->pt,genTau1->eta,genTau1->phi,genTau1->mass);
+        vGenTau1.SetPtEtaPhiM(genTau1->pt, genTau1->eta, genTau1->phi, genTau1->mass);
 
         const TGenParticle* genTau2 = (TGenParticle*) ((*part)[iTau2]);
         TLorentzVector vGenTau2;
-        vGenTau2.SetPtEtaPhiM(genTau2->pt,genTau2->eta,genTau2->phi,genTau2->mass);
+        vGenTau2.SetPtEtaPhiM(genTau2->pt, genTau2->eta, genTau2->phi, genTau2->mass);
 
         TLorentzVector vVisTau1, vVisTau2;
 
@@ -456,25 +473,14 @@ void select(const TString sample="", const TString tempinput="ZH_tautau_rhorho_C
 
         }
 
-        if (iT1==-1|| iT2==-1) continue;
-
-        TLorentzVector recoZ;
-        recoZ.SetPxPyPzE(0,0,0,0);
-
         for (Int_t j=0; j<jet->GetEntries(); j++)
         {
             const TGenJet* loop = (TGenJet*) ((*jet)[j]);
 
-            if(loop->pt < 10) continue;
+            if(loop->pt < 20) continue;
 
-            if(deltaR(vVisTau1.Eta(), loop->eta, vVisTau1.Phi(), loop->phi)<DR) continue;
-            if(deltaR(vVisTau2.Eta(), loop->eta, vVisTau2.Phi(), loop->phi)<DR) continue;
-
-            TLorentzVector vloop;
-            vloop.SetPtEtaPhiM(loop->pt, loop->eta, loop->phi, loop->mass);
-            recoZ+=vloop;
-
-            if(loop->pt < 30) continue;
+            if(deltaR(vVisTau1.Eta(), loop->eta, vVisTau1.Phi(), loop->phi)<DR+0.5) continue;
+            if(deltaR(vVisTau2.Eta(), loop->eta, vVisTau2.Phi(), loop->phi)<DR+0.5) continue;
             
             if (ijetZ1==-1)
             {
@@ -495,38 +501,19 @@ void select(const TString sample="", const TString tempinput="ZH_tautau_rhorho_C
 
         if(ijetZ1==-1 || ijetZ2==-1) zToLep=1;
 
-        for (Int_t j=0; j<part->GetEntries(); j++)
-        {
-            TGenParticle* genloop = (TGenParticle*) ((*part)[j]);
-
-            Int_t pdg=abs(genloop->pdgId);
-            Int_t parent=genloop->parent;
-
-            if(pdg!=11 && pdg!= 13 && pdg!= 22) continue;
-            if(genloop->pt < 10) continue;
-
-            if(deltaR(vVisTau1.Eta(), genloop->eta, vVisTau1.Phi(), genloop->phi)<DR) continue;
-            if(deltaR(vVisTau2.Eta(), genloop->eta, vVisTau2.Phi(), genloop->phi)<DR) continue;
-
-            TLorentzVector vloop;
-            vloop.SetPtEtaPhiM(genloop->pt, genloop->eta, genloop->phi, genloop->mass);
-            recoZ+=vloop;
-
-        }
-
-        if(zToLep){
+        if(zToLep==1){
             for (Int_t j=0; j<part->GetEntries(); j++)
             {
-                TGenParticle* genloop = (TGenParticle*) ((*part)[j]);
+                TGenParticle *genloop = (TGenParticle*) ((*part)[j]);
 
                 Int_t pdg=abs(genloop->pdgId);
                 Int_t parent=genloop->parent;
 
                 if(pdg!=11 && pdg!= 13) continue;
-                if(genloop->pt < 30) continue;
+                if(genloop->pt < 20) continue;
 
-                if(deltaR(((TGenJet*) ((*jet)[iT1]))->eta, genloop->eta, ((TGenJet*) ((*jet)[iT1]))->phi, genloop->phi)<DR) continue;
-                if(deltaR(((TGenJet*) ((*jet)[iT2]))->eta, genloop->eta, ((TGenJet*) ((*jet)[iT2]))->phi, genloop->phi)<DR) continue;
+                if(deltaR(vVisTau1.Eta(), genloop->eta, vVisTau1.Phi(), genloop->phi)<DR+0.5) continue;
+                if(deltaR(vVisTau2.Eta(), genloop->eta, vVisTau2.Phi(), genloop->phi)<DR+0.5) continue;
 
                 if (iZ1==-1)
                 {
@@ -537,51 +524,68 @@ void select(const TString sample="", const TString tempinput="ZH_tautau_rhorho_C
                 }
             }
 
-            if(iZ1==-1) continue;
-
-            for (Int_t j=0; j<part->GetEntries(); j++)
-            {
-                TGenParticle* genloop = (TGenParticle*) ((*part)[j]);
-
-                Int_t pdg=abs(genloop->pdgId);
-                Int_t parent=genloop->parent;
-
-                if(pdg!=11 && pdg!= 13) continue;
-                if(genloop->pt < 30) continue;
-                if(iZ1==j) continue;
-                if(pdg!=abs(((TGenParticle*) ((*part)[iZ1]))->pdgId)) continue;
-                if(deltaR(((TGenJet*) ((*jet)[iT1]))->eta, genloop->eta, ((TGenJet*) ((*jet)[iT1]))->phi, genloop->phi)<DR) continue;
-                if(deltaR(((TGenJet*) ((*jet)[iT2]))->eta, genloop->eta, ((TGenJet*) ((*jet)[iT2]))->phi, genloop->phi)<DR) continue;
-
-                if (iZ2==-1)
+            if(iZ1!=-1){
+                for (Int_t j=0; j<part->GetEntries(); j++)
                 {
-                    iZ2=j;
-                }
-                else if(((TGenParticle*) ((*part)[iZ2]))->pt < genloop->pt){
-                    iZ2=j;
-                }
+                    TGenParticle* genloop = (TGenParticle*) ((*part)[j]);
 
+                    Int_t pdg=abs(genloop->pdgId);
+                    Int_t parent=genloop->parent;
+
+                    if(pdg!=11 && pdg!= 13) continue;
+                    if(genloop->pt < 30) continue;
+                    if(iZ1==j) continue;
+                    if(pdg!=abs(((TGenParticle*) ((*part)[iZ1]))->pdgId)) continue;
+                    if(deltaR(vVisTau1.Eta(), genloop->eta, vVisTau1.Phi(), genloop->phi)<DR+0.5) continue;
+                    if(deltaR(vVisTau2.Eta(), genloop->eta, vVisTau2.Phi(), genloop->phi)<DR+0.5) continue;
+
+                    if (iZ2==-1)
+                    {
+                        iZ2=j;
+                    }
+                    else if(((TGenParticle*) ((*part)[iZ2]))->pt < genloop->pt){
+                        iZ2=j;
+                    }
+                }
             }
-
         }
         
-        if(zToLep && (iZ1==-1 || iZ2==-1)) continue;
+        if(zToLep==1 && (iZ1==-1 || iZ2==-1)) zToLep=-1;
 
-        const TGenJet *taujet1 = (TGenJet*) ((*jet)[iT1]);
-        const TGenJet *taujet2 = (TGenJet*) ((*jet)[iT2]);
+        if(iZ==-1 && (iZ1==-1 || iZ2==-1) && (ijetZ1==-1 || ijetZ2==-1)) continue;
 
-        const TGenJet *jetZ1, *jetZ2;
+        if(zToLep==0){
+            const TGenJet *jetZ1, *jetZ2;
 
-        const TGenParticle *z1, *z2;
-
-        if(!zToLep){
             jetZ1 = (TGenJet*) ((*jet)[ijetZ1]);
             jetZ2 = (TGenJet*) ((*jet)[ijetZ2]);
+
+            z1_pt=jetZ1->pt;
+            z1_eta=jetZ1->eta;
+            z1_phi=jetZ1->phi;
+            z1_mass=jetZ1->mass;
+
+            z2_pt=jetZ2->pt;
+            z2_eta=jetZ2->eta;
+            z2_phi=jetZ2->phi;
+            z2_mass=jetZ2->mass;
         }
 
-        if(zToLep){
+        if(zToLep==1){
+            const TGenParticle *z1, *z2;
+
             z1 = (TGenParticle*) ((*part)[iZ1]);
             z2 = (TGenParticle*) ((*part)[iZ2]);
+
+            z1_pt=z1->pt;
+            z1_eta=z1->eta;
+            z1_phi=z1->phi;
+            z1_mass=z1->mass;
+
+            z2_pt=z2->pt;
+            z2_eta=z2->eta;
+            z2_phi=z2->phi;
+            z2_mass=z2->mass;
         }
 
         if(iZ!=-1){
@@ -593,20 +597,22 @@ void select(const TString sample="", const TString tempinput="ZH_tautau_rhorho_C
             z_mass = parZ->mass;
         }
 
-        recoz_pt = recoZ.Pt();
-        recoz_eta = recoZ.Eta();
-        recoz_phi = recoZ.Phi();
-        recoz_mass = recoZ.M();
+        if(iT1!=-1 && iT2!=-1){
+            const TGenJet *taujet1, *taujet2;
 
-        jetTau1_pt=taujet1->pt;
-        jetTau1_eta=taujet1->eta;
-        jetTau1_phi=taujet1->phi;
-        jetTau1_mass=taujet1->mass;
+            taujet1 = (TGenJet*) ((*jet)[iT1]);
+            taujet2 = (TGenJet*) ((*jet)[iT2]);
 
-        jetTau2_pt=taujet2->pt;
-        jetTau2_eta=taujet2->eta;
-        jetTau2_phi=taujet2->phi;
-        jetTau2_mass=taujet2->mass;
+            jetTau1_pt=taujet1->pt;
+            jetTau1_eta=taujet1->eta;
+            jetTau1_phi=taujet1->phi;
+            jetTau1_mass=taujet1->mass;
+
+            jetTau2_pt=taujet2->pt;
+            jetTau2_eta=taujet2->eta;
+            jetTau2_phi=taujet2->phi;
+            jetTau2_mass=taujet2->mass;
+        } 
 
         genTau1_pt=genTau1->pt;
         genTau1_eta=genTau1->eta;
@@ -628,57 +634,31 @@ void select(const TString sample="", const TString tempinput="ZH_tautau_rhorho_C
         visTau2_phi=vVisTau2.Phi();
         visTau2_mass=vVisTau2.M();
 
-        pions1_pt=pions1.Pt();
-        pions1_eta=pions1.Eta();
-        pions1_phi=pions1.Phi();
-        pions1_mass=pions1.M();
+        cpions1_pt=cpions1.Pt();
+        cpions1_eta=cpions1.Eta();
+        cpions1_phi=cpions1.Phi();
+        cpions1_mass=cpions1.M();
 
-        pions2_pt=pions2.Pt();
-        pions2_eta=pions2.Eta();
-        pions2_phi=pions2.Phi();
-        pions2_mass=pions2.M();
+        cpions2_pt=cpions2.Pt();
+        cpions2_eta=cpions2.Eta();
+        cpions2_phi=cpions2.Phi();
+        cpions2_mass=cpions2.M();
 
-        neutpions1_pt=neutpions1.Pt();
-        neutpions1_eta=neutpions1.Eta();
-        neutpions1_phi=neutpions1.Phi();
-        neutpions1_mass=neutpions1.M();
+        npions1_pt=npions1.Pt();
+        npions1_eta=npions1.Eta();
+        npions1_phi=npions1.Phi();
+        npions1_mass=npions1.M();
 
-        neutpions2_pt=neutpions2.Pt();
-        neutpions2_eta=neutpions2.Eta();
-        neutpions2_phi=neutpions2.Phi();
-        neutpions2_mass=neutpions2.M();
-
-        
-
-        if(!zToLep){
-            jetz1_pt=jetZ1->pt;
-            jetz1_eta=jetZ1->eta;
-            jetz1_phi=jetZ1->phi;
-            jetz1_mass=jetZ1->mass;
-
-            jetz2_pt=jetZ2->pt;
-            jetz2_eta=jetZ2->eta;
-            jetz2_phi=jetZ2->phi;
-            jetz2_mass=jetZ2->mass;
-        }
-
-        if(zToLep){
-            z1_pt=z1->pt;
-            z1_eta=z1->eta;
-            z1_phi=z1->phi;
-            z1_mass=z1->mass;
-
-            z2_pt=z2->pt;
-            z2_eta=z2->eta;
-            z2_phi=z2->phi;
-            z2_mass=z2->mass;
-        }
+        npions2_pt=npions2.Pt();
+        npions2_eta=npions2.Eta();
+        npions2_phi=npions2.Phi();
+        npions2_mass=npions2.M();
 
         for (Int_t j=0; j<part->GetEntries(); j++)
         {
             const TGenParticle* genloop = (TGenParticle*) ((*part)[j]);
             if ( genloop->pt<20) continue;
-            if ( fabs(genloop->pdgId)!=13&&fabs(genloop->pdgId)!=11 ) continue;
+            if ( abs(genloop->pdgId)!=13 && abs(genloop->pdgId)!=11 ) continue;
             nLeptons++;
         }
 
@@ -691,16 +671,16 @@ void select(const TString sample="", const TString tempinput="ZH_tautau_rhorho_C
 
 }
 
-Float_t deltaR( const Float_t eta1, const Float_t eta2, const Float_t phi1, const Float_t phi2 )
+Double_t deltaR( const Double_t eta1, const Double_t eta2, const Double_t phi1, const Double_t phi2 )
 {
 
-    const Float_t pi = 3.14159265358979;
+    const Double_t pi = 3.14159265358979;
 
-    Float_t etaDiff = (eta1-eta2);
-    Float_t phiDiff = fabs(phi1-phi2);
+    Double_t etaDiff = (eta1-eta2);
+    Double_t phiDiff = fabs(phi1-phi2);
     while ( phiDiff>pi ) phiDiff = fabs(phiDiff-2.0*pi);
 
-    Float_t deltaRSquared = etaDiff*etaDiff + phiDiff*phiDiff;
+    Double_t deltaRSquared = etaDiff*etaDiff + phiDiff*phiDiff;
 
     return TMath::Sqrt(deltaRSquared);
 
