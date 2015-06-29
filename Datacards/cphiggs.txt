@@ -3,7 +3,7 @@ imax 1 number of bins
 jmax 5 number of processes
 kmax * number of nuisance parameters
 ----------------------------------------------------------------------------------------------------------------------------------
-shapes  data_obs    CPHiggs         Histograms.root         Theta_obs1
+shapes  data_obs    CPHiggs         Histograms.root         Theta_obs0
 shapes  sig0        CPHiggs         Histograms.root         Theta_sig0
 shapes  sigpi2      CPHiggs         Histograms.root         Theta_sigpi2
 shapes  dy          CPHiggs         Histograms.root         Theta_dy

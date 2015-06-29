@@ -42,15 +42,15 @@ void select(const TString sample="", const TString tempinput="ZH_tautau_rhorho_C
 
     // Data structures to store info from TTrees
     TGenEventInfo *info = new TGenEventInfo();
-    TClonesArray *jet             = new TClonesArray("baconhep::TGenJet");
-    TClonesArray *part            = new TClonesArray("baconhep::TGenParticle");
+    TClonesArray *jet = new TClonesArray("baconhep::TGenJet");
+    TClonesArray *part = new TClonesArray("baconhep::TGenParticle");
 
     chain.SetBranchAddress("GenEvtInfo",  &info);
-    TBranch *infoBr     = chain.GetBranch("GenEvtInfo");
+    TBranch *infoBr = chain.GetBranch("GenEvtInfo");
     chain.SetBranchAddress("GenJet" ,     &jet );
-    TBranch *jetBr      = chain.GetBranch("GenJet");
+    TBranch *jetBr = chain.GetBranch("GenJet");
     chain.SetBranchAddress("GenParticle", &part);
-    TBranch *partBr     = chain.GetBranch("GenParticle");
+    TBranch *partBr = chain.GetBranch("GenParticle");
 
     // Output file and trees
     TFile *outfile = new TFile(output, "RECREATE");
