@@ -1,21 +1,21 @@
 # Datacard for likelihood between different CP hypotheses
 imax 1 number of bins
-jmax 5 number of processes
+jmax 4 number of processes
 kmax * number of nuisance parameters
 ----------------------------------------------------------------------------------------------------------------------------------
-shapes  data_obs    CPHiggs         Histograms.root         Theta_obs0
+shapes  data_obs    CPHiggs         Histograms.root         Theta_obspi2
 shapes  sig0        CPHiggs         Histograms.root         Theta_sig0
 shapes  sigpi2      CPHiggs         Histograms.root         Theta_sigpi2
-shapes  dy          CPHiggs         Histograms.root         Theta_dy
-shapes  WW          CPHiggs         Histograms.root         Theta_WW
+shapes  jj          CPHiggs         Histograms.root         Theta_jj
+# shapes  dy          CPHiggs         Histograms.root         Theta_dy
 shapes  ZZ          CPHiggs         Histograms.root         Theta_ZZ
-shapes  ZZee        CPHiggs         Histograms.root         Theta_ZZee
+shapes  Zll        CPHiggs         Histograms.root          Theta_Zll
 ----------------------------------------------------------------------------------------------------------------------------------
 bin                 CPHiggs
 observation            -1.0
 ----------------------------------------------------------------------------------------------------------------------------------
-bin                           CPHiggs     CPHiggs     CPHiggs     CPHiggs     CPHiggs     CPHiggs
-process                            -1           0           1           2           3           4
-process                          sig0      sigpi2          dy          WW          ZZ        ZZee
-rate                           934.36      912.90      181.46      114.84     1061.38      578.35
+bin                           CPHiggs     CPHiggs     CPHiggs     CPHiggs     CPHiggs
+process                            -1           0           1           2           3
+process                          sig0      sigpi2          jj          ZZ         Zll
+rate                               -1          -1          -1          -1          -1
 ----------------------------------------------------------------------------------------------------------------------------------

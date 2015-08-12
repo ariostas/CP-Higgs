@@ -26,11 +26,12 @@ Double_t deltaR( const Double_t eta1, const Double_t eta2, const Double_t phi1, 
 
 using namespace baconhep;
 
-void select(const TString sample="", const TString tempinput="ZH_tautau_rhorho_CP0_mad.root", const Double_t xsec = 1,
-    const Int_t eosflag = 0)
+void select(const TString sample="", const TString tempinput="bacon_sample.root", const Double_t xsec = 1,
+    const Int_t eosflag = 2)
 {
     TString input;
-    if(eosflag==1) input = "root://eoscms.cern.ch//store/user/arapyan/higgs_cp_samples/" + sample + "/Bacon/" + tempinput;
+    if(eosflag==2) input = "/afs/cern.ch/work/a/ariostas/public/CP-Higgs/" + tempinput;
+    else if(eosflag==1) input = "root://eoscms.cern.ch//store/user/arapyan/higgs_cp_samples/" + sample + "/Bacon/" + tempinput;
     else input = "/afs/cern.ch/work/a/arapyan/public/forMarkus/higgs_cp_samples/" + sample + "/" + tempinput;
 
     TString output = "/afs/cern.ch/work/a/ariostas/private/CP-Higgs_temp/" + sample + "/" + tempinput;
@@ -105,6 +106,9 @@ void select(const TString sample="", const TString tempinput="ZH_tautau_rhorho_C
 
     // Z
     Double_t z_pt, z_eta, z_phi, z_mass;
+
+    // Reco Z
+    Double_t recoz_pt, recoz_eta, recoz_phi, recoz_mass;
 
     outtree->Branch("eventWeight",      &eventWeight,       "eventWeight/D");   // event weight from cross-section and Event->Weight
 
@@ -181,6 +185,11 @@ void select(const TString sample="", const TString tempinput="ZH_tautau_rhorho_C
     outtree->Branch("z_phi",            &z_phi,             "z_phi/D");
     outtree->Branch("z_mass",           &z_mass,            "z_mass/D");
 
+    outtree->Branch("recoz_pt",         &recoz_pt,          "recoz_pt/D");
+    outtree->Branch("recoz_eta",        &recoz_eta,         "recoz_eta/D");
+    outtree->Branch("recoz_phi",        &recoz_phi,         "recoz_phi/D");
+    outtree->Branch("recoz_mass",       &recoz_mass,        "recoz_mass/D");
+
     for (Int_t i=0; i<chain.GetEntries(); i++)
     {
         if(i==0 || (i+1)%1000==0) cout << "Processing event " << i+1 << endl;
@@ -190,7 +199,7 @@ void select(const TString sample="", const TString tempinput="ZH_tautau_rhorho_C
         part->Clear();
         partBr->GetEntry(i);
         jet->Clear();
-        jetBr->GetEntry(i);
+        //jetBr->GetEntry(i);
 
         if (part->GetEntries()==0) continue;
 
@@ -224,6 +233,7 @@ void select(const TString sample="", const TString tempinput="ZH_tautau_rhorho_C
         z2_pt=z2_eta=z2_phi=z2_mass=0;
 
         z_pt=z_eta=z_phi=z_mass=0;
+        recoz_pt=recoz_eta=recoz_phi=recoz_mass=0;
 
         eventWeight=xsec*1000.0;
 
@@ -407,6 +417,23 @@ void select(const TString sample="", const TString tempinput="ZH_tautau_rhorho_C
                 }
             }
 
+        }
+
+
+        TLorentzVector vRecoZ;
+        vRecoZ.SetPxPyPzE(0,0,0,0);
+        for (Int_t j=0; j<part->GetEntries(); j++)
+        {
+            const TGenParticle* genloop = (TGenParticle*) ((*part)[j]);
+            if (fabs(genloop->pdgId)==12 || fabs(genloop->pdgId)==14 || fabs(genloop->pdgId)==14) continue;
+            if(fabs(genloop->eta) > 5. || genloop->status!=1) continue;
+            if(deltaR(genloop->eta, cpions1.Eta(), genloop->phi, cpions1.Phi()) < DR) continue;
+            if(deltaR(genloop->eta, cpions2.Eta(), genloop->phi, cpions2.Phi()) < DR) continue;
+            if(deltaR(genloop->eta, npions1.Eta(), genloop->phi, npions1.Phi()) < DR) continue;
+            if(deltaR(genloop->eta, npions2.Eta(), genloop->phi, npions2.Phi()) < DR) continue;
+            TLorentzVector vTemp;
+            vTemp.SetPtEtaPhiM(genloop->pt, genloop->eta, genloop->phi, genloop->mass);
+            vRecoZ+=vTemp;
         }
 
         const TGenParticle* genTau1 = (TGenParticle*) ((*part)[iTau1]);
@@ -596,6 +623,11 @@ void select(const TString sample="", const TString tempinput="ZH_tautau_rhorho_C
             z_phi = parZ->phi;
             z_mass = parZ->mass;
         }
+
+        recoz_pt = vRecoZ.Pt();
+        recoz_eta = vRecoZ.Eta();
+        recoz_phi = vRecoZ.Phi();
+        recoz_mass = vRecoZ.M();
 
         if(iT1!=-1 && iT2!=-1){
             const TGenJet *taujet1, *taujet2;

@@ -64,6 +64,9 @@ void cleanUpMergedFiles(TString infilename="/filepath/test.root", TString outfil
     // Z
     Double_t z_pt, z_eta, z_phi, z_mass;
 
+    // Reco Z
+    Double_t recoz_pt, recoz_eta, recoz_phi, recoz_mass;
+
 	TFile* infile = new TFile(infilename); assert(infile);
 	TTree* intree = (TTree*) infile->Get("Events"); assert(intree);
 
@@ -125,6 +128,10 @@ void cleanUpMergedFiles(TString infilename="/filepath/test.root", TString outfil
     intree->SetBranchAddress("z_eta",          &z_eta);
     intree->SetBranchAddress("z_phi",          &z_phi);
     intree->SetBranchAddress("z_mass",         &z_mass);
+    intree->SetBranchAddress("recoz_pt",       &recoz_pt);
+    intree->SetBranchAddress("recoz_eta",      &recoz_eta);
+    intree->SetBranchAddress("recoz_phi",      &recoz_phi);
+    intree->SetBranchAddress("recoz_mass",     &recoz_mass);
 
 	TTree* infotree = (TTree*) infile->Get("Count"); assert(infotree);
 	infotree->SetBranchAddress("n",      &n);
@@ -219,6 +226,11 @@ void cleanUpMergedFiles(TString infilename="/filepath/test.root", TString outfil
     outtree->Branch("z_eta",            &z_eta,             "z_eta/D");
     outtree->Branch("z_phi",            &z_phi,             "z_phi/D");
     outtree->Branch("z_mass",           &z_mass,            "z_mass/D");
+
+    outtree->Branch("recoz_pt",         &recoz_pt,          "recoz_pt/D");
+    outtree->Branch("recoz_eta",        &recoz_eta,         "recoz_eta/D");
+    outtree->Branch("recoz_phi",        &recoz_phi,         "recoz_phi/D");
+    outtree->Branch("recoz_mass",       &recoz_mass,        "recoz_mass/D");
 	
 	sampTree->Fill();
 

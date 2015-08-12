@@ -37,7 +37,7 @@ using namespace TMath;
 void histogram(TH1D*, const TString, TCanvas*, const TString, const TString, const TString);
 void histogram(vector<TH1D*>, vector<TString>, TCanvas*, const TString, const TString, const TString);
 void histogramS(vector<TH1D*>, vector<TString>, TCanvas*, const TString, const TString, const TString);
-void saveResults();
+void saveResults(TString);
 void analyze(TString, Double_t, Int_t);
 Double_t deltaR(const Float_t, const Float_t, const Float_t, const Float_t);
 Double_t getTheta(TLorentzVector, TLorentzVector, TLorentzVector, TLorentzVector, TLorentzVector, TLorentzVector);
@@ -52,7 +52,9 @@ TH1D *Theta_obspi4 = new TH1D("Theta_obspi4", "Theta_obspi4", 20, -3.1416, 3.141
 TH1D *Theta_obspi2 = new TH1D("Theta_obspi2", "Theta_obspi2", 20, -3.1416, 3.1416);
 TH1D *Theta_obs3pi4 = new TH1D("Theta_obs3pi4", "Theta_obs3pi4", 20, -3.1416, 3.1416);
 TH1D *Theta_sig0 = new TH1D("Theta_sig0", "Theta_sig0", 20, -3.1416, 3.1416);
+TH1D *Theta_sigpi4 = new TH1D("Theta_sigpi4", "Theta_sigpi4", 20, -3.1416, 3.1416);
 TH1D *Theta_sigpi2 = new TH1D("Theta_sigpi2", "Theta_sigpi2", 20, -3.1416, 3.1416);
+TH1D *Theta_sig3pi4 = new TH1D("Theta_sig3pi4", "Theta_sig3pi4", 20, -3.1416, 3.1416);
 TH1D *Theta_dy = new TH1D("Theta_dy", "Theta_dy", 20, -3.1416, 3.1416);
 TH1D *Theta_WW = new TH1D("Theta_WW", "Theta_WW", 20, -3.1416, 3.1416);
 TH1D *Theta_ZZ = new TH1D("Theta_ZZ", "Theta_ZZ", 20, -3.1416, 3.1416);
@@ -70,14 +72,14 @@ TH1D *hPhiSpi2 = new TH1D("hPhiSpi2", "hPhiSpi2", 20, -3.1416, 3.1416);
 TH1D *hPhiS3pi4 = new TH1D("hPhiS3pi4", "hPhiS3pi4", 20, -3.1416, 3.1416);
 TH1D *hPhiB = new TH1D("hPhiB", "hPhiB", 20, -3.1416, 3.1416);
 
-TH1D *genhistoS1 = new TH1D("histoS1", "histoS1", 50, 0, 150);
-TH1D *genhistoS2 = new TH1D("histoS2", "histoS2", 50, 0, 150);
-TH1D *genhistoS3 = new TH1D("histoS3", "histoS3", 50, 0, 150);
-TH1D *genhistoS4 = new TH1D("histoS4", "histoS4", 50, 0, 150);
-TH1D *genhistoB = new TH1D("histoB", "histoB", 50, 0, 150);
+TH1D *genhistoS1 = new TH1D("histoS1", "histoS1", 50, -1, 150);
+TH1D *genhistoS2 = new TH1D("histoS2", "histoS2", 50, -1, 150);
+TH1D *genhistoS3 = new TH1D("histoS3", "histoS3", 50, -1, 150);
+TH1D *genhistoS4 = new TH1D("histoS4", "histoS4", 50, -1, 150);
+TH1D *genhistoB = new TH1D("histoB", "histoB", 50, -1, 150);
 
-TH1D *genhisto1 = new TH1D("genhisto1", "genhisto1", 50, 50, 110);
-TH1D *genhisto2 = new TH1D("genhisto2", "genhisto2", 50, 50, 110);
+TH1D *genhisto1 = new TH1D("genhisto1", "genhisto1", 50, -1, 150);
+TH1D *genhisto2 = new TH1D("genhisto2", "genhisto2", 50, -1, 150);
 
 // Initialize data sets
 vector<vector<Dataset> > datasets;
@@ -95,7 +97,7 @@ vector<TString> histogramNames, histogramNames2;
  * MAIN FUNCTION
  */
 
- void cphiggs(TString sample = "all", TString inputFile = "xsec.txt"){
+ void cphiggs(TString calcP = "false", TString sample = "all", TString inputFile = "xsec.txt"){
     
     cout << "\n\nStarting process...\n\n";
 
@@ -184,7 +186,7 @@ vector<TString> histogramNames, histogramNames2;
     }
     
     // Save results
-    saveResults();
+    saveResults(calcP);
     
 }
 
@@ -248,6 +250,9 @@ void analyze(TString inputfile, Double_t crossSection, Int_t samp)
     // Z
     Double_t z_pt, z_eta, z_phi, z_mass;
 
+    // Reco Z
+    Double_t recoz_pt, recoz_eta, recoz_phi, recoz_mass;
+
     TLorentzVector vTau1Sol1, vTau1Sol2, vTau2Sol1, vTau2Sol2, vcpion1, vcpion2, vnpion1, vnpion2, vHiggs, vrho1, vrho2;
 
     Double_t thetaSol1, thetaSol2;
@@ -265,14 +270,14 @@ void analyze(TString inputfile, Double_t crossSection, Int_t samp)
     intree->SetBranchAddress("nnpions1",        &nnpions1);
     intree->SetBranchAddress("nnpions2",        &nnpions2);
     intree->SetBranchAddress("zToLep",          &zToLep);
-    intree->SetBranchAddress("genTau1_pt",      &genTau1_pt);
-    intree->SetBranchAddress("genTau1_eta",     &genTau1_eta);
-    intree->SetBranchAddress("genTau1_phi",     &genTau1_phi);
-    intree->SetBranchAddress("genTau1_mass",    &genTau1_mass);
-    intree->SetBranchAddress("genTau2_pt",      &genTau2_pt);
-    intree->SetBranchAddress("genTau2_eta",     &genTau2_eta);
-    intree->SetBranchAddress("genTau2_phi",     &genTau2_phi);
-    intree->SetBranchAddress("genTau2_mass",    &genTau2_mass);
+    //intree->SetBranchAddress("genTau1_pt",      &genTau1_pt);
+    //intree->SetBranchAddress("genTau1_eta",     &genTau1_eta);
+    //intree->SetBranchAddress("genTau1_phi",     &genTau1_phi);
+    //intree->SetBranchAddress("genTau1_mass",    &genTau1_mass);
+    //intree->SetBranchAddress("genTau2_pt",      &genTau2_pt);
+    //intree->SetBranchAddress("genTau2_eta",     &genTau2_eta);
+    //intree->SetBranchAddress("genTau2_phi",     &genTau2_phi);
+    //intree->SetBranchAddress("genTau2_mass",    &genTau2_mass);
     intree->SetBranchAddress("cpions1_pt",      &cpions1_pt);
     intree->SetBranchAddress("cpions1_eta",     &cpions1_eta);
     intree->SetBranchAddress("cpions1_phi",     &cpions1_phi);
@@ -301,6 +306,10 @@ void analyze(TString inputfile, Double_t crossSection, Int_t samp)
     intree->SetBranchAddress("z_eta",           &z_eta);
     intree->SetBranchAddress("z_phi",           &z_phi);
     intree->SetBranchAddress("z_mass",          &z_mass);
+    intree->SetBranchAddress("recoz_pt",        &recoz_pt);
+    intree->SetBranchAddress("recoz_eta",       &recoz_eta);
+    intree->SetBranchAddress("recoz_phi",       &recoz_phi);
+    intree->SetBranchAddress("recoz_mass",      &recoz_mass);
 
     Double_t tempSelection=0, tempSelectionError=0;
 
@@ -332,12 +341,16 @@ void analyze(TString inputfile, Double_t crossSection, Int_t samp)
         vZ = v1 + v2;
 
         // If the event has a generated Z use its real 4-vector
-        if(z_pt>0.01) vZ.SetPtEtaPhiM(z_pt, z_eta, z_phi, z_mass);
+        //if(z_pt>0.01) vZ.SetPtEtaPhiM(z_pt, z_eta, z_phi, z_mass);
+        vZ.SetPtEtaPhiM(recoz_pt, recoz_eta, recoz_phi, recoz_mass);
+        //if(zToLep!=1) continue;
+
+        genhistos.at(signalFlags.at(samp)>0?0:signalFlags.at(samp)+4)->Fill(vZ.M(), eventWeight);
 
         vHiggs = vInit-vZ;
 
         // Scale down the backgrounds to simulate a cut on the mass of the Higgs.
-        if(signalFlags.at(samp)>0) eventWeight/=2.0;
+        if(signalFlags.at(samp)>0) eventWeight/=4.0;
         eventWeight*=0.66*0.66;
 
         //if(vHiggs.M() < 120) continue;
@@ -440,7 +453,7 @@ void analyze(TString inputfile, Double_t crossSection, Int_t samp)
  * FUNCTION FOR PRINTING AND SAVING THE RESULTS
  */
 
-void saveResults()
+void saveResults(TString calcP)
 {
     cout << endl;
 
@@ -449,7 +462,9 @@ void saveResults()
     hThetaB->Add(Theta_ZZ);
     hThetaB->Add(Theta_ZZee);
     Theta_sig0->Add(hThetaS0);
+    Theta_sigpi4->Add(hThetaSpi4);
     Theta_sigpi2->Add(hThetaSpi2);
+    Theta_sig3pi4->Add(hThetaS3pi4);
 
     Theta_obs0->Add(Theta_dy);
     Theta_obs0->Add(Theta_WW);
@@ -475,49 +490,53 @@ void saveResults()
     Theta_obs3pi4->Add(Theta_ZZee);
     Theta_obs3pi4->Add(hThetaS3pi4);
 
-    TH1D *hp1 = new TH1D("hp1", "hp1", 100, 0, 1);
-    TH1D *hp2 = new TH1D("hp2", "hp2", 100, 0, 1);
-    TH1D *hp3 = new TH1D("hp3", "hp3", 100, 0, 1);
-    TH1D *hp4 = new TH1D("hp4", "hp4", 100, 0, 1);
+    TH1D *S0andS0 = new TH1D("S0andS0", "S0andS0", 100, -0.005, 0.005);
+    TH1D *S0andSpi4 = new TH1D("S0andSpi4", "S0andSpi4", 100, -0.005, 0.005);
+    TH1D *S0andSpi2 = new TH1D("S0andSpi2", "S0andSpi2", 100, -0.005, 0.005);
+    TH1D *S0andS3pi4 = new TH1D("S0andS3pi4", "S0andS3pi4", 100, -0.005, 0.005);
 
     vector<TH1D*> hp;
-    hp.push_back(hp1); hp.push_back(hp2); hp.push_back(hp3); hp.push_back(hp4);
+    hp.push_back(S0andS0); hp.push_back(S0andSpi4); hp.push_back(S0andSpi2); hp.push_back(S0andS3pi4);
     vector<TString> hpNames;
     hpNames.push_back("Delta=0 and Delta=0"); hpNames.push_back("Delta=0 and Delta=pi/4"); hpNames.push_back("Delta=0 and Delta=pi/2"); hpNames.push_back("Delta=0 and Delta=3pi/4");
 
-    srand(22);
-    for(Int_t i=0; i<4; i++){
-        Double_t averageT=0, averageP=0, averagePError=0;
+    if(calcP == "true"){
 
-        for(Int_t x =0; x < nDatasets; x++){
+        srand(22);
+        for(Int_t i=0; i<4; i++){
+            Double_t averageT=0, averageP=0, averagePError=0;
 
-            Double_t tval = calcT(datasets.at(0).at(x),datasets.at(i).at(x));
+            for(Int_t x =0; x < nDatasets; x++){
 
-            Double_t ptval;
-            Int_t pval=0;
-            Int_t nperm=100;
-            for(Int_t p=0; p<nperm; p++){
-                ptval = permCalcT(datasets.at(0).at(x),datasets.at(i).at(x));
-                //hp.at(i)->Fill(ptval);
-                if(ptval > tval) pval++;
-                if(p!=0) cout << "\e[A";
-                cout << "[" << string((p+1)/(nperm/50),'-') << string(50-(p+1)/(nperm/50),' ') << "]  " << 100*(p+1)/nperm << "\% completed.   Permutation " << p+1 << " of " << nperm;
-                cout << "   Dataset " << x+1 << " of " << nDatasets << endl;
+                Double_t tval = calcT(datasets.at(0).at(x),datasets.at(i).at(x));
+
+                Double_t ptval;
+                Int_t pval=0;
+                Int_t nperm=100;
+                for(Int_t p=0; p<nperm; p++){
+                    ptval = permCalcT(datasets.at(0).at(x),datasets.at(i).at(x));
+                    hp.at(i)->Fill(ptval);
+                    if(ptval > tval) pval++;
+                    if(p!=0) cout << "\e[A";
+                    cout << "[" << string((p+1)/(nperm/50),'-') << string(50-(p+1)/(nperm/50),' ') << "]  " << 100*(p+1)/nperm << "\% completed.   Permutation " << p+1 << " of " << nperm;
+                    cout << "   Dataset " << x+1 << " of " << nDatasets << endl;
+                }
+                Double_t p = pval/Double_t(nperm), pError = Sqrt(p*(1-p)/Double_t(nperm));
+
+                //hp.at(i)->Fill(p);
+
+                averageT+=tval;
+                averageP+=p;
+                averagePError+=pError;
             }
-            Double_t p = pval/Double_t(nperm), pError = Sqrt(p*(1-p)/Double_t(nperm));
+            averageT/=Double_t(nDatasets);
+            averageP/=Double_t(nDatasets);
+            averagePError/=Double_t(nDatasets);
 
-            hp.at(i)->Fill(p);
+            cout << "Average T of " << hpNames.at(i) << ": " << averageT << endl;
+            cout << "Average p of " << hpNames.at(i) << ": " << averageP  << " +- " << averagePError << endl << endl;
 
-            averageT+=tval;
-            averageP+=p;
-            averagePError+=pError;
         }
-        averageT/=Double_t(nDatasets);
-        averageP/=Double_t(nDatasets);
-        averagePError/=Double_t(nDatasets);
-
-        cout << "Average T of " << hpNames.at(i) << ": " << averageT << endl;
-        cout << "Average p of " << hpNames.at(i) << ": " << averageP  << " +- " << averagePError << endl << endl;
 
     }
 
@@ -527,16 +546,15 @@ void saveResults()
 
     histogram(hTheta, histogramNames, c1, "#Theta variable", "Fraction", "Theta");
     histogram(hPhi, histogramNames, c1, "#varphi^{*} variable", "Fraction", "Phi");
-    histogram(genhistos, histogramNames, c1, "H mass", "Fraction", "histo");
-    histogram(genhistos2, histogramNames2, c1, "Z mass", "Fraction", "h3");
+    histogram(genhistos, histogramNames, c1, "Z mass", "Fraction", "Zmass");
+    //histogram(genhistos2, histogramNames2, c1, "Z mass", "Fraction", "Zmass");
 
-    for(Int_t i=0; i<4; i++){
-        TString filename="p_"; filename+=i; filename+=".jpg";
-        histogram(hp.at(i), hpNames.at(i), c1, "p distribution", "Fraction", filename);
+    if(calcP == "true"){
+        for(Int_t i=0; i<4; i++){
+            TString filename="p_"; filename+=i; filename+=".jpg";
+            histogram(hp.at(i), hpNames.at(i), c1, "p distribution", "Fraction", filename);
+        }
     }
-
-
-
 
     TFile f("Datacards/Histograms.root","new");
     Theta_obs0->Write();
@@ -544,11 +562,17 @@ void saveResults()
     Theta_obspi2->Write();
     Theta_obs3pi4->Write();
     Theta_sig0->Write();
+    Theta_sigpi4->Write();
     Theta_sigpi2->Write();
+    Theta_sig3pi4->Write();
     Theta_dy->Write();
     Theta_WW->Write();
     Theta_ZZ->Write();
     Theta_ZZee->Write();
+    S0andS0->Write();
+    S0andSpi4->Write();
+    S0andSpi2->Write();
+    S0andS3pi4->Write();
     f.Close();
 
     cout << "\n\n\nProcess finished\nPrinting results...\n\n" << "\033[1;34mResults\033[0m\n\n";

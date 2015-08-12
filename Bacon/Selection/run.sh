@@ -6,7 +6,7 @@
      eosflag=$5
       
 
-cd /afs/cern.ch/user/a/ariostas/CP-Higgs/Selection
+cd /afs/cern.ch/user/a/ariostas/CP-Higgs/Bacon/Selection
 
 h=`basename $0`
 echo "Script:    $h"
