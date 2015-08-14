@@ -9,6 +9,7 @@
 #include <TStyle.h>
 #include <TLegend.h>
 #include <TH1.h>
+#include <TF1.h>
 #include <iostream>
 #include <fstream>
 #include <cmath>
@@ -346,6 +347,8 @@ void analyze(TString inputfile, Double_t xsec, Int_t samp){
 
         V4H = V4Init - V4Z;
 
+        //genhistos.at(signalFlags.at(samp)>0?0:signalFlags.at(samp)+4)->Fill(V4NPion1.M(), eventWeight);
+        //genhistos.at(signalFlags.at(samp)>0?0:signalFlags.at(samp)+4)->Fill(V4NPion2.M(), eventWeight);
         genhistos.at(signalFlags.at(samp)>0?0:signalFlags.at(samp)+4)->Fill(V4H.M(), eventWeight);
 
         if(fabs(V4Z.M() - 91.2) > 5.) continue;
@@ -368,15 +371,33 @@ void analyze(TString inputfile, Double_t xsec, Int_t samp){
 
         if(V4Neutrino1Sol1.M() < -5 || V4Neutrino2Sol1.M() < -5 || V4Neutrino1Sol2.M() < -5 || V4Neutrino2Sol2.M() < -5) continue;
 
+        //genhistos.at(signalFlags.at(samp)>0?0:signalFlags.at(samp)+4)->Fill((V4CPion1 + V4NPion1).M(), eventWeight);
+        //genhistos.at(signalFlags.at(samp)>0?0:signalFlags.at(samp)+4)->Fill((V4CPion2 + V4NPion2).M(), eventWeight);
+
+        // genhistos.at(signalFlags.at(samp)>0?0:signalFlags.at(samp)+4)->Fill(deltaR(V4CPion1, V4NPion11), eventWeight);
+        // genhistos.at(signalFlags.at(samp)>0?0:signalFlags.at(samp)+4)->Fill(deltaR(V4CPion1, V4NPion12), eventWeight);
+        // genhistos.at(signalFlags.at(samp)>0?0:signalFlags.at(samp)+4)->Fill(deltaR(V4CPion2, V4NPion21), eventWeight);
+        // genhistos.at(signalFlags.at(samp)>0?0:signalFlags.at(samp)+4)->Fill(deltaR(V4CPion2, V4NPion22), eventWeight);
+
+        TLorentzVector V4Temp1, V4Temp2;
+        V4Temp1.SetPtEtaPhiM(ZLepton1_Pt, ZLepton1_Eta, ZLepton1_Phi, ZLepton1_Mass);
+        V4Temp2.SetPtEtaPhiM(ZLepton2_Pt, ZLepton2_Eta, ZLepton2_Phi, ZLepton2_Mass);
+
         if(ZFromLep == 1){
             if(sameCharge != 0 || NLeptons != 2) continue;
+            if(deltaR(V4CPion1, V4Temp1) < 0.4 || deltaR(V4CPion1, V4Temp2) < 0.4 || deltaR(V4CPion2, V4Temp1) < 0.4 || deltaR(V4CPion2, V4Temp2) < 0.4) continue;
+            if(fabs(V4Z.P()-51.6) > 2.) continue;
         }
         else if(ZFromLep == -1){
             if(fabs(V4Z.P()-51.6) > 3. || V4Z.Pt() < 10) continue;
             if(V4Tau1Sol1.M() < 0 || V4Tau2Sol1.M() < 0 || V4Tau1Sol2.M() < 0 || V4Tau2Sol2.M() < 0) continue;
             if(NLeptons != 0) continue;
-            if(NTauJets < 1) continue;
         }
+
+        //genhistos.at(signalFlags.at(samp)>0?0:signalFlags.at(samp)+4)->Fill(deltaR(V4CPion1, V4NPion11), eventWeight);
+        //genhistos.at(signalFlags.at(samp)>0?0:signalFlags.at(samp)+4)->Fill(deltaR(V4CPion1, V4NPion12), eventWeight);
+        //genhistos.at(signalFlags.at(samp)>0?0:signalFlags.at(samp)+4)->Fill(deltaR(V4CPion2, V4NPion21), eventWeight);
+        //genhistos.at(signalFlags.at(samp)>0?0:signalFlags.at(samp)+4)->Fill(deltaR(V4CPion2, V4NPion22), eventWeight);
 
         //if(V4Tau1Sol1.Pt() < 20 || V4Tau2Sol1.Pt() < 20 || V4Tau1Sol2.Pt() < 20 || V4Tau2Sol2.Pt() < 20) continue;
         //if(V4Tau1Sol1.Pt() > 90 || V4Tau2Sol1.Pt() > 90 || V4Tau1Sol2.Pt() > 90 || V4Tau2Sol2.Pt() > 90) continue;
@@ -494,14 +515,14 @@ void saveResults(TString calcP)
 
                 Double_t ptval;
                 Int_t pval=0;
-                Int_t nperm=100;
+                Int_t nperm=1000;
                 for(Int_t p=0; p<nperm; p++){
                     ptval = permCalcT(datasets.at(0).at(x),datasets.at(i).at(x));
                     hp.at(i)->Fill(ptval);
                     if(ptval > tval) pval++;
                     if(p!=0) cout << "\e[A";
-                    cout << "[" << string((p+1)/(nperm/50),'-') << string(50-(p+1)/(nperm/50),' ') << "]  " << 100*(p+1)/nperm << "\% completed.   Permutation " << p+1 << " of " << nperm;
-                    cout << "   Dataset " << x+1 << " of " << nDatasets << endl;
+                    //cout << "[" << string((p+1)/(nperm/50),'-') << string(50-(p+1)/(nperm/50),' ') << "]  " << 100*(p+1)/nperm << "\% completed.   Permutation " << p+1 << " of " << nperm;
+                    //cout << "   Dataset " << x+1 << " of " << nDatasets << endl;
                 }
                 Double_t p = pval/Double_t(nperm), pError = Sqrt(p*(1-p)/Double_t(nperm));
 
@@ -527,9 +548,25 @@ void saveResults(TString calcP)
     gStyle->SetOptStat(kFALSE);
 
     histogram(hTheta, histogramNames, c1, "#Theta variable", "Normalized yield", "Theta");
-    histogram(hPhi, histogramNames, c1, "#varphi^{*} variable", "Normalized yield", "Phi");
+
+    TF1 *myfit = new TF1("myfit","[0] + [1]*cos(x + [2])", 0, 2.);
+
+    myfit->SetParName(0,"C");
+    myfit->SetParName(1,"A");
+    myfit->SetParName(2,"W");
+    myfit->SetParameter(0, 0.5);
+    myfit->SetParameter(1, 0.1);
+    myfit->SetParameter(2, 0);
+
+    hTheta.at(1)->Fit("myfit");
+    hTheta.at(2)->Fit("myfit");
+    hTheta.at(3)->Fit("myfit");
+    hTheta.at(4)->Fit("myfit");
+
+    //histogram(hPhi, histogramNames, c1, "#varphi^{*} variable", "Normalized yield", "Phi");
     histogram(genhistos, histogramNames, c1, "H mass", "Normalized yield", "Zmass");
     //histogram(genhistos2, histogramNames2, c1, "Z mass", "Fraction", "Zmass");
+    histogram(hTheta, histogramNames, c1, "#Theta variable", "Normalized yield", "ThetaFit");
 
     if(calcP == "true"){
         for(Int_t i=0; i<4; i++){

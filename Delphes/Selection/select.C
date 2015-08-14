@@ -246,76 +246,110 @@ void select(const TString sample="", const TString tempinput="bacon_sample.root"
         //else if(ZMuon1->Charge == ZMuon2->Charge) ZMuon1 = ZMuon2 = 0;
         //else if(fabs((ZMuon1->P4()+ZMuon2->P4()).M() - 91.2) > 5.) ZMuon1 = ZMuon2 = 0;
 
+        vector<Track*> orderedChargedHadrons;
         for(Int_t iChargedHadron=0; iChargedHadron<branchChargedHadron->GetEntries(); iChargedHadron++) {
-            chargedHadron = (Track*) branchChargedHadron->At(iChargedHadron);
+            
+            Track *tempTrack=0;
+            for(Int_t iChargedHadron2=0; iChargedHadron2<branchChargedHadron->GetEntries(); iChargedHadron2++) {
+                chargedHadron = (Track*) branchChargedHadron->At(iChargedHadron2);
 
-            if(chargedHadron->P4().P() < .5) continue;
+                if(chargedHadron->P4().P() < .5) continue;
 
-            if(chargedHadron->Charge == 1){
-                if(!CPion1){
-                    CPion1 = chargedHadron;
+                bool isDifferent = true;
+                for(Int_t x = 0; x < orderedChargedHadrons.size(); x++){
+                    if(chargedHadron == orderedChargedHadrons.at(x)) isDifferent = false;
                 }
-                else if(chargedHadron->P4().P() > CPion1->P4().P()){
-                    CPion1 = chargedHadron;
-                }
+                if(!isDifferent) continue;
+                
+                if(!tempTrack) tempTrack = chargedHadron;
+                else if(chargedHadron->P4().P() > tempTrack->P4().P()) tempTrack = chargedHadron;
+
             }
-            else{
-                if(!CPion2){
-                    CPion2 = chargedHadron;
+
+            if(tempTrack) orderedChargedHadrons.push_back(tempTrack);
+            else break;
+
+        }
+
+        Double_t maxMass=0;
+        for(Int_t iChargedHadron=0; iChargedHadron<orderedChargedHadrons.size(); iChargedHadron++){
+            
+            for(Int_t iChargedHadron2=iChargedHadron+1; iChargedHadron2<orderedChargedHadrons.size(); iChargedHadron2++) {
+                
+                Track *tempTrack1 = (Track*) branchChargedHadron->At(iChargedHadron), *tempTrack2 = (Track*) branchChargedHadron->At(iChargedHadron2);
+                
+                if(tempTrack1->Charge == tempTrack2->Charge) continue;
+                if(deltaR(tempTrack1->P4(), tempTrack2->P4()) < 2.25) continue;
+                if((tempTrack1->P4() + tempTrack2->P4()).M() < maxMass) continue;
+                maxMass = (tempTrack1->P4() + tempTrack2->P4()).M();
+
+                if(tempTrack1->Charge == 1){
+                    CPion1 = tempTrack1;
+                    CPion2 = tempTrack2;
                 }
-                else if(chargedHadron->P4().P() > CPion2->P4().P()){
-                    CPion2 = chargedHadron;
+                else{
+                    CPion1 = tempTrack2;
+                    CPion2 = tempTrack1;
                 }
+
             }
 
         }
 
         if(!CPion1 || !CPion2) continue;
-        if(deltaR(CPion1->P4(), CPion2->P4()) < 2.) continue;
 
-        Photon *tempPhoton1=0, *tempPhoton2=0, *tempPhoton3=0, *tempPhoton4=0;
+        Int_t nTracks1=0, nTracks2=0;
+        for(Int_t iChargedHadron=0; iChargedHadron<branchChargedHadron->GetEntries(); iChargedHadron++) {
+            Track *tempTrack = (Track*) branchChargedHadron->At(iChargedHadron);
+
+            if(tempTrack->P4().P() < .5) continue;
+
+            if(deltaR(tempTrack->P4(), CPion1->P4()) < 0.4) nTracks1++;
+            if(deltaR(tempTrack->P4(), CPion2->P4()) < 0.4) nTracks2++;
+        }
+
+        if(nTracks1 != 1 || nTracks2 != 1) continue;
+
         for (Int_t iPhoton=0; iPhoton<branchPhoton->GetEntries(); iPhoton++) {
             photon = (Photon*) branchPhoton->At(iPhoton);
             
             if(photon->P4().P() < .5) continue;
 
             if(deltaR(photon->P4(), CPion1->P4()) < 0.4){
-                if(!tempPhoton1){
-                    tempPhoton1 = photon;
+                if(!NPion11){
+                    NPion11 = photon;
                 }
-                else if(photon->P4().P() > tempPhoton1->P4().P()){
-                    tempPhoton2 = tempPhoton1;
-                    tempPhoton1 = photon;
+                else if(photon->P4().P() > NPion11->P4().P()){
+                    NPion12 = NPion11;
+                    NPion11 = photon;
                 }
-                else if(!tempPhoton2){
-                    tempPhoton2 = photon;
+                else if(!NPion12){
+                    NPion12 = photon;
                 }
-                else if(photon->P4().P() > tempPhoton2->P4().P()){
-                    tempPhoton2 = photon;
+                else if(photon->P4().P() > NPion12->P4().P()){
+                    NPion12 = photon;
                 }
             }
 
             else if(deltaR(photon->P4(), CPion2->P4()) < 0.4){
-                if(!tempPhoton3){
-                    tempPhoton3 = photon;
+                if(!NPion21){
+                    NPion21 = photon;
                 }
-                else if(photon->P4().P() > tempPhoton3->P4().P()){
-                    tempPhoton4 = tempPhoton3;
-                    tempPhoton3 = photon;
+                else if(photon->P4().P() > NPion21->P4().P()){
+                    NPion22 = NPion21;
+                    NPion21 = photon;
                 }
-                else if(!tempPhoton4){
-                    tempPhoton4 = photon;
+                else if(!NPion22){
+                    NPion22 = photon;
                 }
-                else if(photon->P4().P() > tempPhoton4->P4().P()){
-                    tempPhoton4 = photon;
+                else if(photon->P4().P() > NPion22->P4().P()){
+                    NPion22 = photon;
                 }
             }
 
         }
 
-        if(!tempPhoton1 || !tempPhoton2 || !tempPhoton3 || !tempPhoton4) continue;
-
-        NPion11 = tempPhoton1; NPion12 = tempPhoton2; NPion21 = tempPhoton3; NPion22 = tempPhoton4;
+        if(!NPion11 || !NPion12 || !NPion21 || !NPion22) continue;
 
         TLorentzVector vnpion1, vnpion2;
         vnpion1 = NPion11->P4() + NPion12->P4(); vnpion2 = NPion21->P4() + NPion22->P4();
@@ -377,8 +411,10 @@ void select(const TString sample="", const TString tempinput="bacon_sample.root"
             if(deltaR(electron->P4(), CPion2->P4()) < 0.2) continue;
             if(deltaR(electron->P4(), vnpion1) < 0.2) continue;
             if(deltaR(electron->P4(), vnpion2) < 0.2) continue;
+            TLorentzVector tempEletron = electron->P4();
+            tempEletron.SetPtEtaPhiM(tempEletron.Pt(), tempEletron.Eta(), tempEletron.Phi(), 0.000510999);
 
-            recoZ += electron->P4();
+            recoZ += tempEletron;
 
         }
 
@@ -390,8 +426,10 @@ void select(const TString sample="", const TString tempinput="bacon_sample.root"
             if(deltaR(muon->P4(), CPion2->P4()) < 0.2) continue;
             if(deltaR(muon->P4(), vnpion1) < 0.2) continue;
             if(deltaR(muon->P4(), vnpion2) < 0.2) continue;
+            TLorentzVector tempMuon = muon->P4();
+            tempMuon.SetPtEtaPhiM(tempMuon.Pt(), tempMuon.Eta(), tempMuon.Phi(), 0.105658);
 
-            recoZ += muon->P4();
+            recoZ += tempMuon;
 
         }
 
@@ -474,11 +512,11 @@ void select(const TString sample="", const TString tempinput="bacon_sample.root"
             ZLepton1_Pt   = ZElectron1->PT;
             ZLepton1_Eta  = ZElectron1->Eta;
             ZLepton1_Phi  = ZElectron1->Phi;
-            ZLepton1_Mass = ZElectron1->P4().M();
+            ZLepton1_Mass = 0.000510999;
             ZLepton2_Pt   = ZElectron2->PT;
             ZLepton2_Eta  = ZElectron2->Eta;
             ZLepton2_Phi  = ZElectron2->Phi;
-            ZLepton2_Mass = ZElectron2->P4().M();
+            ZLepton2_Mass = 0.000510999;
             sameCharge = (ZElectron1->Charge == ZElectron2->Charge ? 1 : 0);
         }
         else if(ZMuon1 && ZMuon2){
@@ -486,22 +524,22 @@ void select(const TString sample="", const TString tempinput="bacon_sample.root"
                 ZLepton1_Pt   = ZMuon1->PT;
                 ZLepton1_Eta  = ZMuon1->Eta;
                 ZLepton1_Phi  = ZMuon1->Phi;
-                ZLepton1_Mass = ZMuon1->P4().M();
+                ZLepton1_Mass = 0.105658;
                 ZLepton2_Pt   = ZMuon2->PT;
                 ZLepton2_Eta  = ZMuon2->Eta;
                 ZLepton2_Phi  = ZMuon2->Phi;
-                ZLepton2_Mass = ZMuon2->P4().M();
+                ZLepton2_Mass = 0.105658;
                 sameCharge = (ZMuon1->Charge == ZMuon2->Charge ? 1 : 0);
             }
             else if(fabs((ZMuon1->P4() + ZMuon2->P4()).M() - 91.2) < fabs((ZElectron1->P4() + ZElectron2->P4()).M() - 91.2)){
                 ZLepton1_Pt   = ZMuon1->PT;
                 ZLepton1_Eta  = ZMuon1->Eta;
                 ZLepton1_Phi  = ZMuon1->Phi;
-                ZLepton1_Mass = ZMuon1->P4().M();
+                ZLepton1_Mass = 0.105658;
                 ZLepton2_Pt   = ZMuon2->PT;
                 ZLepton2_Eta  = ZMuon2->Eta;
                 ZLepton2_Phi  = ZMuon2->Phi;
-                ZLepton2_Mass = ZMuon2->P4().M();
+                ZLepton2_Mass = 0.105658;
                 sameCharge = (ZMuon1->Charge == ZMuon2->Charge ? 1 : 0);
             }
         }

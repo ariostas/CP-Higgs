@@ -1,21 +1,21 @@
 # Datacard for likelihood between different CP hypotheses
 imax 1 number of bins
-jmax 4 number of processes
+jmax 3 number of processes
 kmax * number of nuisance parameters
 ----------------------------------------------------------------------------------------------------------------------------------
 shapes  data_obs    CPHiggs         Histograms.root         Theta_obspi2
 shapes  sig0        CPHiggs         Histograms.root         Theta_sig0
 shapes  sigpi2      CPHiggs         Histograms.root         Theta_sigpi2
-shapes  jj          CPHiggs         Histograms.root         Theta_jj
-# shapes  dy          CPHiggs         Histograms.root         Theta_dy
-shapes  ZZ          CPHiggs         Histograms.root         Theta_ZZ
+# shapes  jj          CPHiggs         Histograms.root         Theta_jj
+shapes  dy          CPHiggs         Histograms.root         Theta_dy
+# shapes  ZZ          CPHiggs         Histograms.root         Theta_ZZ
 shapes  Zll        CPHiggs         Histograms.root          Theta_Zll
 ----------------------------------------------------------------------------------------------------------------------------------
 bin                 CPHiggs
 observation            -1.0
 ----------------------------------------------------------------------------------------------------------------------------------
-bin                           CPHiggs     CPHiggs     CPHiggs     CPHiggs     CPHiggs
-process                            -1           0           1           2           3
-process                          sig0      sigpi2          jj          ZZ         Zll
-rate                               -1          -1          -1          -1          -1
+bin                           CPHiggs     CPHiggs     CPHiggs     CPHiggs
+process                            -1           0           1           2
+process                          sig0      sigpi2          dy         Zll
+rate                               -1          -1          -1          -1
 ----------------------------------------------------------------------------------------------------------------------------------
