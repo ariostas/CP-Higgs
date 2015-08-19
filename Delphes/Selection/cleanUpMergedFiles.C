@@ -23,13 +23,17 @@ void cleanUpMergedFiles(TString sampName = "test") {
 
 	//Event info
     Double_t eventWeight;
-    Int_t NLeptons, NJets, NTauJets, hasH, sameCharge;
+    Int_t NLeptons, NJets, NTauJets, hasH, sameCharge, NCPions1, NCPions2, NNPions1, NNPions2;
 
     //Charged pions
     Double_t CPion1_Pt, CPion2_Pt;
     Double_t CPion1_Eta, CPion2_Eta;
     Double_t CPion1_Phi, CPion2_Phi;
     Double_t CPion1_Mass, CPion2_Mass;
+    Double_t CPions1_Pt, CPions2_Pt;
+    Double_t CPions1_Eta, CPions2_Eta;
+    Double_t CPions1_Phi, CPions2_Phi;
+    Double_t CPions1_Mass, CPions2_Mass;
 
     //Neutral pions
     Double_t NPion11_Pt, NPion12_Pt;
@@ -40,6 +44,10 @@ void cleanUpMergedFiles(TString sampName = "test") {
     Double_t NPion21_Eta, NPion22_Eta;
     Double_t NPion21_Phi, NPion22_Phi;
     Double_t NPion21_Mass, NPion22_Mass;
+    Double_t NPions1_Pt, NPions2_Pt;
+    Double_t NPions1_Eta, NPions2_Eta;
+    Double_t NPions1_Phi, NPions2_Phi;
+    Double_t NPions1_Mass, NPions2_Mass;
 
     //Jets from Z
     Double_t ZJet1_Pt, ZJet2_Pt;
@@ -65,6 +73,10 @@ void cleanUpMergedFiles(TString sampName = "test") {
     intree->SetBranchAddress("NTauJets",        &NTauJets);
     intree->SetBranchAddress("hasH",            &hasH);
     intree->SetBranchAddress("sameCharge",      &sameCharge);
+    intree->SetBranchAddress("NCPions1",        &NCPions1);
+    intree->SetBranchAddress("NCPions2",        &NCPions2);
+    intree->SetBranchAddress("NNPions1",        &NNPions1);
+    intree->SetBranchAddress("NNPions2",        &NNPions2);
     intree->SetBranchAddress("CPion1_Pt",       &CPion1_Pt);
     intree->SetBranchAddress("CPion1_Eta",      &CPion1_Eta);
     intree->SetBranchAddress("CPion1_Phi",      &CPion1_Phi);
@@ -73,6 +85,14 @@ void cleanUpMergedFiles(TString sampName = "test") {
     intree->SetBranchAddress("CPion2_Eta",      &CPion2_Eta);
     intree->SetBranchAddress("CPion2_Phi",      &CPion2_Phi);
     intree->SetBranchAddress("CPion2_Mass",     &CPion2_Mass);
+    intree->SetBranchAddress("CPions1_Pt",      &CPions1_Pt);
+    intree->SetBranchAddress("CPions1_Eta",     &CPions1_Eta);
+    intree->SetBranchAddress("CPions1_Phi",     &CPions1_Phi);
+    intree->SetBranchAddress("CPions1_Mass",    &CPions1_Mass);
+    intree->SetBranchAddress("CPions2_Pt",      &CPions2_Pt);
+    intree->SetBranchAddress("CPions2_Eta",     &CPions2_Eta);
+    intree->SetBranchAddress("CPions2_Phi",     &CPions2_Phi);
+    intree->SetBranchAddress("CPions2_Mass",    &CPions2_Mass);
     intree->SetBranchAddress("NPion11_Pt",      &NPion11_Pt);
     intree->SetBranchAddress("NPion11_Eta",     &NPion11_Eta);
     intree->SetBranchAddress("NPion11_Phi",     &NPion11_Phi);
@@ -89,6 +109,13 @@ void cleanUpMergedFiles(TString sampName = "test") {
     intree->SetBranchAddress("NPion22_Eta",     &NPion22_Eta);
     intree->SetBranchAddress("NPion22_Phi",     &NPion22_Phi);
     intree->SetBranchAddress("NPion22_Mass",    &NPion22_Mass);
+    intree->SetBranchAddress("NPions1_Eta",     &NPions1_Eta);
+    intree->SetBranchAddress("NPions1_Phi",     &NPions1_Phi);
+    intree->SetBranchAddress("NPions1_Mass",    &NPions1_Mass);
+    intree->SetBranchAddress("NPions2_Pt",      &NPions2_Pt);
+    intree->SetBranchAddress("NPions2_Eta",     &NPions2_Eta);
+    intree->SetBranchAddress("NPions2_Phi",     &NPions2_Phi);
+    intree->SetBranchAddress("NPions2_Mass",    &NPions2_Mass);
     intree->SetBranchAddress("ZJet1_Pt",        &ZJet1_Pt);
     intree->SetBranchAddress("ZJet1_Eta",       &ZJet1_Eta);
     intree->SetBranchAddress("ZJet1_Phi",       &ZJet1_Phi);
@@ -137,6 +164,11 @@ void cleanUpMergedFiles(TString sampName = "test") {
     outtree->Branch("hasH",         &hasH,          "hasH/I");
     outtree->Branch("sameCharge",         &sameCharge,          "sameCharge/I");
 
+    outtree->Branch("NCPions1",         &NCPions1,          "NCPions1/I");
+    outtree->Branch("NCPions2",         &NCPions2,          "NCPions2/I");
+    outtree->Branch("NNPions1",         &NNPions1,          "NNPions1/I");
+    outtree->Branch("NNPions2",         &NNPions2,          "NNPions2/I");
+
     outtree->Branch("CPion1_Pt",       &CPion1_Pt,        "CPion1_Pt/D");
     outtree->Branch("CPion1_Eta",      &CPion1_Eta,       "CPion1_Eta/D");
     outtree->Branch("CPion1_Phi",      &CPion1_Phi,       "CPion1_Phi/D");
@@ -145,6 +177,14 @@ void cleanUpMergedFiles(TString sampName = "test") {
     outtree->Branch("CPion2_Eta",      &CPion2_Eta,       "CPion2_Eta/D");
     outtree->Branch("CPion2_Phi",      &CPion2_Phi,       "CPion2_Phi/D");
     outtree->Branch("CPion2_Mass",     &CPion2_Mass,      "CPion2_Mass/D");
+    outtree->Branch("CPions1_Pt",       &CPions1_Pt,        "CPions1_Pt/D");
+    outtree->Branch("CPions1_Eta",      &CPions1_Eta,       "CPions1_Eta/D");
+    outtree->Branch("CPions1_Phi",      &CPions1_Phi,       "CPions1_Phi/D");
+    outtree->Branch("CPions1_Mass",     &CPions1_Mass,      "CPions1_Mass/D");
+    outtree->Branch("CPions2_Pt",       &CPions2_Pt,        "CPions2_Pt/D");
+    outtree->Branch("CPions2_Eta",      &CPions2_Eta,       "CPions2_Eta/D");
+    outtree->Branch("CPions2_Phi",      &CPions2_Phi,       "CPions2_Phi/D");
+    outtree->Branch("CPions2_Mass",     &CPions2_Mass,      "CPions2_Mass/D");
 
     outtree->Branch("NPion11_Pt",       &NPion11_Pt,        "NPion11_Pt/D");
     outtree->Branch("NPion11_Eta",      &NPion11_Eta,       "NPion11_Eta/D");
@@ -162,6 +202,14 @@ void cleanUpMergedFiles(TString sampName = "test") {
     outtree->Branch("NPion22_Eta",      &NPion22_Eta,       "NPion22_Eta/D");
     outtree->Branch("NPion22_Phi",      &NPion22_Phi,       "NPion22_Phi/D");
     outtree->Branch("NPion22_Mass",     &NPion22_Mass,      "NPion22_Mass/D");
+    outtree->Branch("NPions1_Pt",       &NPions1_Pt,        "NPions1_Pt/D");
+    outtree->Branch("NPions1_Eta",      &NPions1_Eta,       "NPions1_Eta/D");
+    outtree->Branch("NPions1_Phi",      &NPions1_Phi,       "NPions1_Phi/D");
+    outtree->Branch("NPions1_Mass",     &NPions1_Mass,      "NPions1_Mass/D");
+    outtree->Branch("NPions2_Pt",       &NPions2_Pt,        "NPions2_Pt/D");
+    outtree->Branch("NPions2_Eta",      &NPions2_Eta,       "NPions2_Eta/D");
+    outtree->Branch("NPions2_Phi",      &NPions2_Phi,       "NPions2_Phi/D");
+    outtree->Branch("NPions2_Mass",     &NPions2_Mass,      "NPions2_Mass/D");
 
     outtree->Branch("ZJet1_Pt",       &ZJet1_Pt,        "ZJet1_Pt/D");
     outtree->Branch("ZJet1_Eta",      &ZJet1_Eta,       "ZJet1_Eta/D");

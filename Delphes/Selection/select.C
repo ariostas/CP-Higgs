@@ -42,7 +42,8 @@ void select(const TString sample="", const TString tempinput="bacon_sample.root"
 
     // read input input file
     TChain chain("Delphes");
-    chain.Add("/afs/cern.ch/work/a/ariostas/public/CP-Higgs_Samples/" + tempinput);
+    if(eosflag==0) chain.Add("/afs/cern.ch/work/a/ariostas/public/CP-Higgs_Samples/" + tempinput);
+    else chain.Add(tempinput);
     ExRootTreeReader *treeReader = new ExRootTreeReader(&chain);
     Long64_t numberOfEntries = treeReader->GetEntries();
 
@@ -54,7 +55,6 @@ void select(const TString sample="", const TString tempinput="bacon_sample.root"
     TClonesArray *branchParticle = treeReader->UseBranch("Particle");
     TClonesArray *branchChargedHadron = treeReader->UseBranch("ChargedHadron");
     TClonesArray *branchNeutralHadron = treeReader->UseBranch("NeutralHadron");
-    TClonesArray *branchGenJet = treeReader->UseBranch("GenJet");
     
     if (!(branchJet)) {
         cout << "  file broken" << endl;
@@ -81,6 +81,7 @@ void select(const TString sample="", const TString tempinput="bacon_sample.root"
 
     // Output file and trees
     TString output = "/afs/cern.ch/work/a/ariostas/public/CP-Higgs_Samples_small/out_" + tempinput;
+    if(eosflag != 0) output = "/afs/cern.ch/work/a/ariostas/public/CP-Higgs_Samples_small_autogen/out_" + sample + ".root";
     TFile *outfile = new TFile(output, "RECREATE");
 
     TTree *infoTree = new TTree("Count", "Count");
@@ -91,13 +92,17 @@ void select(const TString sample="", const TString tempinput="bacon_sample.root"
 
     //Event info
     Double_t eventWeight;
-    Int_t NLeptons, NJets, NTauJets, hasH, sameCharge;
+    Int_t NLeptons, NJets, NTauJets, hasH, sameCharge, NCPions1, NCPions2, NNPions1, NNPions2;
 
     //Charged pions
     Double_t CPion1_Pt, CPion2_Pt;
     Double_t CPion1_Eta, CPion2_Eta;
     Double_t CPion1_Phi, CPion2_Phi;
     Double_t CPion1_Mass, CPion2_Mass;
+    Double_t CPions1_Pt, CPions2_Pt;
+    Double_t CPions1_Eta, CPions2_Eta;
+    Double_t CPions1_Phi, CPions2_Phi;
+    Double_t CPions1_Mass, CPions2_Mass;
 
     //Neutral pions
     Double_t NPion11_Pt, NPion12_Pt;
@@ -108,6 +113,10 @@ void select(const TString sample="", const TString tempinput="bacon_sample.root"
     Double_t NPion21_Eta, NPion22_Eta;
     Double_t NPion21_Phi, NPion22_Phi;
     Double_t NPion21_Mass, NPion22_Mass;
+    Double_t NPions1_Pt, NPions2_Pt;
+    Double_t NPions1_Eta, NPions2_Eta;
+    Double_t NPions1_Phi, NPions2_Phi;
+    Double_t NPions1_Mass, NPions2_Mass;
 
     //Jets from Z
     Double_t ZJet1_Pt, ZJet2_Pt;
@@ -131,6 +140,11 @@ void select(const TString sample="", const TString tempinput="bacon_sample.root"
     outtree->Branch("hasH",         &hasH,          "hasH/I");
     outtree->Branch("sameCharge",         &sameCharge,          "sameCharge/I");
 
+    outtree->Branch("NCPions1",         &NCPions1,          "NCPions1/I");
+    outtree->Branch("NCPions2",         &NCPions2,          "NCPions2/I");
+    outtree->Branch("NNPions1",         &NNPions1,          "NNPions1/I");
+    outtree->Branch("NNPions2",         &NNPions2,          "NNPions2/I");
+
     outtree->Branch("CPion1_Pt",       &CPion1_Pt,        "CPion1_Pt/D");
     outtree->Branch("CPion1_Eta",      &CPion1_Eta,       "CPion1_Eta/D");
     outtree->Branch("CPion1_Phi",      &CPion1_Phi,       "CPion1_Phi/D");
@@ -139,6 +153,14 @@ void select(const TString sample="", const TString tempinput="bacon_sample.root"
     outtree->Branch("CPion2_Eta",      &CPion2_Eta,       "CPion2_Eta/D");
     outtree->Branch("CPion2_Phi",      &CPion2_Phi,       "CPion2_Phi/D");
     outtree->Branch("CPion2_Mass",     &CPion2_Mass,      "CPion2_Mass/D");
+    outtree->Branch("CPions1_Pt",       &CPions1_Pt,        "CPions1_Pt/D");
+    outtree->Branch("CPions1_Eta",      &CPions1_Eta,       "CPions1_Eta/D");
+    outtree->Branch("CPions1_Phi",      &CPions1_Phi,       "CPions1_Phi/D");
+    outtree->Branch("CPions1_Mass",     &CPions1_Mass,      "CPions1_Mass/D");
+    outtree->Branch("CPions2_Pt",       &CPions2_Pt,        "CPions2_Pt/D");
+    outtree->Branch("CPions2_Eta",      &CPions2_Eta,       "CPions2_Eta/D");
+    outtree->Branch("CPions2_Phi",      &CPions2_Phi,       "CPions2_Phi/D");
+    outtree->Branch("CPions2_Mass",     &CPions2_Mass,      "CPions2_Mass/D");
 
     outtree->Branch("NPion11_Pt",       &NPion11_Pt,        "NPion11_Pt/D");
     outtree->Branch("NPion11_Eta",      &NPion11_Eta,       "NPion11_Eta/D");
@@ -156,6 +178,14 @@ void select(const TString sample="", const TString tempinput="bacon_sample.root"
     outtree->Branch("NPion22_Eta",      &NPion22_Eta,       "NPion22_Eta/D");
     outtree->Branch("NPion22_Phi",      &NPion22_Phi,       "NPion22_Phi/D");
     outtree->Branch("NPion22_Mass",     &NPion22_Mass,      "NPion22_Mass/D");
+    outtree->Branch("NPions1_Pt",       &NPions1_Pt,        "NPions1_Pt/D");
+    outtree->Branch("NPions1_Eta",      &NPions1_Eta,       "NPions1_Eta/D");
+    outtree->Branch("NPions1_Phi",      &NPions1_Phi,       "NPions1_Phi/D");
+    outtree->Branch("NPions1_Mass",     &NPions1_Mass,      "NPions1_Mass/D");
+    outtree->Branch("NPions2_Pt",       &NPions2_Pt,        "NPions2_Pt/D");
+    outtree->Branch("NPions2_Eta",      &NPions2_Eta,       "NPions2_Eta/D");
+    outtree->Branch("NPions2_Phi",      &NPions2_Phi,       "NPions2_Phi/D");
+    outtree->Branch("NPions2_Mass",     &NPions2_Mass,      "NPions2_Mass/D");
 
     outtree->Branch("ZJet1_Pt",       &ZJet1_Pt,        "ZJet1_Pt/D");
     outtree->Branch("ZJet1_Eta",      &ZJet1_Eta,       "ZJet1_Eta/D");
@@ -185,7 +215,7 @@ void select(const TString sample="", const TString tempinput="bacon_sample.root"
         treeReader->ReadEntry(iEntry);
 
         // Reset variables
-        NLeptons=NJets=NTauJets=hasH=0;
+        NLeptons=NJets=NTauJets=hasH=sameCharge=NCPions1=NCPions2=NNPions1=NNPions2=0;
         ZJet1=ZJet2=0;
         ZElectron1=ZElectron2=0;
         ZMuon1=ZMuon2=0;
@@ -195,7 +225,7 @@ void select(const TString sample="", const TString tempinput="bacon_sample.root"
         for (Int_t iElectron=0; iElectron<branchElectron->GetEntries(); iElectron++) {
             electron = (Electron*) branchElectron->At(iElectron);
             
-            if(electron->P4().P() < 15. || electron->IsolationVar > 0.4) continue;
+            if(electron->P4().P() < 10. || electron->IsolationVar > 0.4) continue;
             
             NLeptons++;
 
@@ -222,7 +252,7 @@ void select(const TString sample="", const TString tempinput="bacon_sample.root"
         for (Int_t iMuon=0; iMuon<branchMuon->GetEntries(); iMuon++) {
             muon = (Muon*) branchMuon->At(iMuon);
             
-            if(muon->P4().P() < 15. || muon->IsolationVar > 0.4) continue;
+            if(muon->P4().P() < 10. || muon->IsolationVar > 0.4) continue;
             
             NLeptons++;
 
@@ -253,13 +283,25 @@ void select(const TString sample="", const TString tempinput="bacon_sample.root"
             for(Int_t iChargedHadron2=0; iChargedHadron2<branchChargedHadron->GetEntries(); iChargedHadron2++) {
                 chargedHadron = (Track*) branchChargedHadron->At(iChargedHadron2);
 
-                if(chargedHadron->P4().P() < .5) continue;
+                if(chargedHadron->P4().P() < 0.5) continue;
 
                 bool isDifferent = true;
                 for(Int_t x = 0; x < orderedChargedHadrons.size(); x++){
                     if(chargedHadron == orderedChargedHadrons.at(x)) isDifferent = false;
                 }
                 if(!isDifferent) continue;
+
+                bool closeToLep = false;
+                if(ZElectron1 && ZElectron2){
+                    if(deltaR(ZElectron1->P4(), chargedHadron->P4()) < 0.4) closeToLep = true;
+                    if(deltaR(ZElectron2->P4(), chargedHadron->P4()) < 0.4) closeToLep = true;
+                }
+                if(ZMuon1 && ZMuon2){
+                    if(deltaR(ZMuon1->P4(), chargedHadron->P4()) < 0.4) closeToLep = true;
+                    if(deltaR(ZMuon2->P4(), chargedHadron->P4()) < 0.4) closeToLep = true;
+                }
+
+                if(closeToLep) continue;
                 
                 if(!tempTrack) tempTrack = chargedHadron;
                 else if(chargedHadron->P4().P() > tempTrack->P4().P()) tempTrack = chargedHadron;
@@ -276,7 +318,7 @@ void select(const TString sample="", const TString tempinput="bacon_sample.root"
             
             for(Int_t iChargedHadron2=iChargedHadron+1; iChargedHadron2<orderedChargedHadrons.size(); iChargedHadron2++) {
                 
-                Track *tempTrack1 = (Track*) branchChargedHadron->At(iChargedHadron), *tempTrack2 = (Track*) branchChargedHadron->At(iChargedHadron2);
+                Track *tempTrack1 = orderedChargedHadrons.at(iChargedHadron), *tempTrack2 = orderedChargedHadrons.at(iChargedHadron2);
                 
                 if(tempTrack1->Charge == tempTrack2->Charge) continue;
                 if(deltaR(tempTrack1->P4(), tempTrack2->P4()) < 2.25) continue;
@@ -298,17 +340,45 @@ void select(const TString sample="", const TString tempinput="bacon_sample.root"
 
         if(!CPion1 || !CPion2) continue;
 
-        Int_t nTracks1=0, nTracks2=0;
+        TLorentzVector V4CPions1, V4CPions2;
         for(Int_t iChargedHadron=0; iChargedHadron<branchChargedHadron->GetEntries(); iChargedHadron++) {
             Track *tempTrack = (Track*) branchChargedHadron->At(iChargedHadron);
 
             if(tempTrack->P4().P() < .5) continue;
 
-            if(deltaR(tempTrack->P4(), CPion1->P4()) < 0.4) nTracks1++;
-            if(deltaR(tempTrack->P4(), CPion2->P4()) < 0.4) nTracks2++;
+            if(deltaR(tempTrack->P4(), CPion1->P4()) < 0.3){
+                NCPions1++;
+                V4CPions1+=tempTrack->P4();
+            }
+            if(deltaR(tempTrack->P4(), CPion2->P4()) < 0.3){
+                NCPions2++;
+                V4CPions2+=tempTrack->P4();
+            }
         }
 
-        if(nTracks1 != 1 || nTracks2 != 1) continue;
+        if(V4CPions1.Pt() == 0.) cout << NCPions1 << " " << CPion1->P4().P() << endl;
+
+        Int_t nPhotons1=0, nPhotons2=0;
+        TLorentzVector V4NPions1, V4NPions2;
+        for(Int_t iPhoton=0; iPhoton<branchPhoton->GetEntries(); iPhoton++) {
+            photon = (Photon*) branchPhoton->At(iPhoton);
+
+            if(photon->P4().P() < .5) continue;
+
+            if(deltaR(photon->P4(), CPion1->P4()) < 0.4){
+                nPhotons1++;
+                V4NPions1+=photon->P4();
+            }
+            if(deltaR(photon->P4(), CPion2->P4()) < 0.4){
+                nPhotons2++;
+                V4NPions2+=photon->P4();
+            }
+        }
+
+        if(nPhotons1 == 2 || nPhotons1 == 4 || nPhotons1 == 6) NNPions1 = nPhotons1/2;
+        else NNPions1 = -nPhotons1;
+        if(nPhotons2 == 2 || nPhotons2 == 4 || nPhotons2 == 6) NNPions2 = nPhotons2/2;
+        else NNPions2 = -nPhotons2;
 
         for (Int_t iPhoton=0; iPhoton<branchPhoton->GetEntries(); iPhoton++) {
             photon = (Photon*) branchPhoton->At(iPhoton);
@@ -394,10 +464,10 @@ void select(const TString sample="", const TString tempinput="bacon_sample.root"
             photon = (Photon*) branchPhoton->At(iPhoton);
 
             if(photon->P4().P() < .1) continue;
-            if(deltaR(photon->P4(), CPion1->P4()) < 0.2) continue;
-            if(deltaR(photon->P4(), CPion2->P4()) < 0.2) continue;
-            if(deltaR(photon->P4(), vnpion1) < 0.2) continue;
-            if(deltaR(photon->P4(), vnpion2) < 0.2) continue;
+            if(deltaR(photon->P4(), CPion1->P4()) < 0.4) continue;
+            if(deltaR(photon->P4(), CPion2->P4()) < 0.4) continue;
+            //if(deltaR(photon->P4(), vnpion1) < 0.5) continue;
+            //if(deltaR(photon->P4(), vnpion2) < 0.5) continue;
 
             recoZ += photon->P4();
 
@@ -464,11 +534,19 @@ void select(const TString sample="", const TString tempinput="bacon_sample.root"
         CPion1_Pt   = CPion1->PT;
         CPion1_Eta  = CPion1->Eta;
         CPion1_Phi  = CPion1->Phi;
-        CPion1_Mass = CPion1->P4().M();
+        CPion1_Mass = 0.139570;
         CPion2_Pt   = CPion2->PT;
         CPion2_Eta  = CPion2->Eta;
         CPion2_Phi  = CPion2->Phi;
-        CPion2_Mass = CPion2->P4().M();
+        CPion2_Mass = 0.139570;
+        CPions1_Pt   = V4CPions1.Pt();
+        CPions1_Eta  = V4CPions1.Eta();
+        CPions1_Phi  = V4CPions1.Phi();
+        CPions1_Mass = V4CPions1.M();
+        CPions2_Pt   = V4CPions2.Pt();
+        CPions2_Eta  = V4CPions2.Eta();
+        CPions2_Phi  = V4CPions2.Phi();
+        CPions2_Mass = V4CPions2.M();
 
         NPion11_Pt   = NPion11->PT;
         NPion11_Eta  = NPion11->Eta;
@@ -486,6 +564,14 @@ void select(const TString sample="", const TString tempinput="bacon_sample.root"
         NPion22_Eta  = NPion22->Eta;
         NPion22_Phi  = NPion22->Phi;
         NPion22_Mass = NPion22->P4().M();
+        NPions1_Pt   = V4NPions1.Pt();
+        NPions1_Eta  = V4NPions1.Eta();
+        NPions1_Phi  = V4NPions1.Phi();
+        NPions1_Mass = V4NPions1.M();
+        NPions2_Pt   = V4NPions2.Pt();
+        NPions2_Eta  = V4NPions2.Eta();
+        NPions2_Phi  = V4NPions2.Phi();
+        NPions2_Mass = V4NPions2.M();
 
         if(ZJet1 && ZJet2){
             ZJet1_Pt   = ZJet1->PT;
@@ -555,10 +641,18 @@ void select(const TString sample="", const TString tempinput="bacon_sample.root"
             sameCharge = -1;
         }
 
-        ZReco_Pt   = recoZ.Pt();
-        ZReco_Eta  = recoZ.Eta();
-        ZReco_Phi  = recoZ.Phi();
-        ZReco_Mass = recoZ.M();
+        if(recoZ.Pt() > 0.){
+            ZReco_Pt   = recoZ.Pt();
+            ZReco_Eta  = recoZ.Eta();
+            ZReco_Phi  = recoZ.Phi();
+            ZReco_Mass = recoZ.M();
+        }
+        else{
+            ZReco_Pt   = 0;
+            ZReco_Eta  = 0;
+            ZReco_Phi  = 0;
+            ZReco_Mass = 0;
+        }
 
         outtree->Fill();
 

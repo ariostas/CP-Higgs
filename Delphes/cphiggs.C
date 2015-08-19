@@ -9,6 +9,7 @@
 #include <TStyle.h>
 #include <TLegend.h>
 #include <TH1.h>
+#include <TH2.h>
 #include <TF1.h>
 #include <iostream>
 #include <fstream>
@@ -38,9 +39,11 @@ using namespace std;
 
 // Declare functions
 void histogram(TH1D*, const TString, TCanvas*, const TString, const TString, const TString);
+void histogram(TH2D*, const TString, TCanvas*, const TString);
+void histogram(vector<TH2D*>, const TString, TCanvas*, const TString);
 void histogram(vector<TH1D*>, vector<TString>, TCanvas*, const TString, const TString, const TString);
 void histogramS(vector<TH1D*>, vector<TString>, TCanvas*, const TString, const TString, const TString);
-void saveResults(TString);
+void saveResults(TString, TString);
 void analyze(TString, Double_t, Int_t);
 Double_t deltaR(TLorentzVector, TLorentzVector);
 Double_t getTheta(TLorentzVector, TLorentzVector, TLorentzVector, TLorentzVector, TLorentzVector, TLorentzVector);
@@ -73,14 +76,19 @@ TH1D *hPhiSpi2 = new TH1D("hPhiSpi2", "hPhiSpi2", 20, -3.1416, 3.1416);
 TH1D *hPhiS3pi4 = new TH1D("hPhiS3pi4", "hPhiS3pi4", 20, -3.1416, 3.1416);
 TH1D *hPhiB = new TH1D("hPhiB", "hPhiB", 20, -3.1416, 3.1416);
 
-TH1D *genhistoS1 = new TH1D("histoS1", "histoS1", 100, 75, 175);
-TH1D *genhistoS2 = new TH1D("histoS2", "histoS2", 100, 75, 175);
-TH1D *genhistoS3 = new TH1D("histoS3", "histoS3", 100, 75, 175);
-TH1D *genhistoS4 = new TH1D("histoS4", "histoS4", 100, 75, 175);
-TH1D *genhistoB = new TH1D("histoB", "histoB", 100, 75, 175);
+TH1D *genhistoS1 = new TH1D("histoS1", "histoS1", 100, -.5, 9.5);
+TH1D *genhistoS2 = new TH1D("histoS2", "histoS2", 100, -.5, 9.5);
+TH1D *genhistoS3 = new TH1D("histoS3", "histoS3", 100, -.5, 9.5);
+TH1D *genhistoS4 = new TH1D("histoS4", "histoS4", 100, -.5, 9.5);
+TH1D *genhistoB = new TH1D("histoB", "histoB", 100, -.5, 9.5);
 
 TH1D *genhisto1 = new TH1D("genhisto1", "genhisto1", 50, -1, 150);
 TH1D *genhisto2 = new TH1D("genhisto2", "genhisto2", 50, -1, 150);
+
+TH2D *h2Theta0 = new TH2D("h2Theta0", "h2Theta0", 20, -3.1416, 3.1416, 20, -3.1416, 3.1416);
+TH2D *h2Thetapi4 = new TH2D("h2Thetapi4", "h2Thetapi4", 20, -3.1416, 3.1416, 20, -3.1416, 3.1416);
+TH2D *h2Thetapi2 = new TH2D("h2Thetapi2", "h2Thetapi2", 20, -3.1416, 3.1416, 20, -3.1416, 3.1416);
+TH2D *h2Theta3pi4 = new TH2D("h2Theta3pi4", "h2Theta3pi4", 20, -3.1416, 3.1416, 20, -3.1416, 3.1416);
 
 // Initialize data sets
 vector<vector<Dataset> > datasets;
@@ -91,16 +99,27 @@ vector<Double_t> total, selection, kinematicCuts, massCuts;
 vector<Double_t> totalError, selectionError, kinematicCutsError, massCutsError;
 vector<Int_t> signalFlags;
 vector<TString> sampleNames;
-vector<TH1D*> hTheta,hThetaTemp, genhistos, hPhi, genhistos2;
+vector<TH1D*> hTheta, hThetaTemp, genhistos, hPhi, genhistos2, hThetaObs;
 vector<TString> histogramNames, histogramNames2;
+vector<TH2D*> h2Theta;
 
 /*
  * MAIN FUNCTION
  */
 
-void cphiggs(TString calcP = "false", TString sample = "all", TString inputFile = "xsec.txt"){
+void cphiggs(TString calcP = "false", TString calcL = "true", TString sample = "all", TString inputFile = "xsec.txt"){
     
     cout << "\n\nStarting process...\n\n";
+
+    hThetaObs.push_back(Theta_obs0);
+    hThetaObs.push_back(Theta_obspi4);
+    hThetaObs.push_back(Theta_obspi2);
+    hThetaObs.push_back(Theta_obs3pi4);
+
+    h2Theta.push_back(h2Theta0);
+    h2Theta.push_back(h2Thetapi4);
+    h2Theta.push_back(h2Thetapi2);
+    h2Theta.push_back(h2Theta3pi4);
 
     hThetaTemp.push_back(hThetaS0);
     hThetaTemp.push_back(hThetaSpi4);
@@ -143,7 +162,7 @@ void cphiggs(TString calcP = "false", TString sample = "all", TString inputFile 
 
     vector<Dataset> tempVectorDataset;
     for(Int_t i = 0; i < nDatasets; i++){
-        Dataset tempDataset(1,10000);
+        Dataset tempDataset(2,10000);
         tempVectorDataset.push_back(tempDataset);
     }
 
@@ -187,7 +206,7 @@ void cphiggs(TString calcP = "false", TString sample = "all", TString inputFile 
     }
     
     // Save results
-    saveResults(calcP);
+    saveResults(calcP, calcL);
     
 }
 
@@ -202,7 +221,7 @@ void analyze(TString inputfile, Double_t xsec, Int_t samp){
 
     //Event info
     Double_t eventWeight;
-    Int_t NLeptons, NJets, NTauJets, hasH, sameCharge;
+    Int_t NLeptons, NJets, NTauJets, hasH, sameCharge, NCPions1, NCPions2, NNPions1, NNPions2;
 
     //Charged pions
     Double_t CPion1_Pt, CPion2_Pt;
@@ -235,7 +254,7 @@ void analyze(TString inputfile, Double_t xsec, Int_t samp){
     //Reco Z
     Double_t ZReco_Pt, ZReco_Eta, ZReco_Phi, ZReco_Mass;
 
-    const TString inputFileTemp = "/afs/cern.ch/work/a/ariostas/public/CP-Higgs_Samples_small/" + inputfile + ".root";
+    const TString inputFileTemp = "/afs/cern.ch/work/a/ariostas/public/CP-Higgs_Samples_small_2015_8_19/" + inputfile + ".root";
     inputfile = "Reading " + inputfile + " events... ";
     inputfile.Resize(60);
     cout << inputfile << endl;
@@ -252,6 +271,10 @@ void analyze(TString inputfile, Double_t xsec, Int_t samp){
     intree->SetBranchAddress("NTauJets",        &NTauJets);
     intree->SetBranchAddress("hasH",            &hasH);
     intree->SetBranchAddress("sameCharge",      &sameCharge);
+    intree->SetBranchAddress("NCPions1",        &NCPions1);
+    intree->SetBranchAddress("NCPions2",        &NCPions2);
+    intree->SetBranchAddress("NNPions1",        &NNPions1);
+    intree->SetBranchAddress("NNPions2",        &NNPions2);
     intree->SetBranchAddress("CPion1_Pt",       &CPion1_Pt);
     intree->SetBranchAddress("CPion1_Eta",      &CPion1_Eta);
     intree->SetBranchAddress("CPion1_Phi",      &CPion1_Phi);
@@ -304,6 +327,9 @@ void analyze(TString inputfile, Double_t xsec, Int_t samp){
 
         if(hasH == 1 && signalFlags.at(samp) > 0) continue;
 
+        if(NCPions1 != 1 || NCPions2 != 1) continue;
+        if(NNPions1 != 1 || NNPions2 != 1) continue;
+
         TLorentzVector V4Z, V4H, V4CPion1, V4CPion2, V4NPion11, V4NPion12, V4NPion21, V4NPion22, V4NPion1, V4NPion2, V4Init;
 
         V4Init.SetPxPyPzE(0, 0, 0, 240);
@@ -342,14 +368,16 @@ void analyze(TString inputfile, Double_t xsec, Int_t samp){
             continue;
         }
 
-        tempSelection += eventWeight;
+        if(ZFromLep != -1) continue;
+
+        //tempSelection += eventWeight;
         tempSelectionError++;
 
         V4H = V4Init - V4Z;
 
         //genhistos.at(signalFlags.at(samp)>0?0:signalFlags.at(samp)+4)->Fill(V4NPion1.M(), eventWeight);
         //genhistos.at(signalFlags.at(samp)>0?0:signalFlags.at(samp)+4)->Fill(V4NPion2.M(), eventWeight);
-        genhistos.at(signalFlags.at(samp)>0?0:signalFlags.at(samp)+4)->Fill(V4H.M(), eventWeight);
+        //genhistos.at(signalFlags.at(samp)>0?0:signalFlags.at(samp)+4)->Fill(V4H.M(), eventWeight);
 
         if(fabs(V4Z.M() - 91.2) > 5.) continue;
 
@@ -371,6 +399,8 @@ void analyze(TString inputfile, Double_t xsec, Int_t samp){
 
         if(V4Neutrino1Sol1.M() < -5 || V4Neutrino2Sol1.M() < -5 || V4Neutrino1Sol2.M() < -5 || V4Neutrino2Sol2.M() < -5) continue;
 
+        tempSelection += eventWeight;
+
         //genhistos.at(signalFlags.at(samp)>0?0:signalFlags.at(samp)+4)->Fill((V4CPion1 + V4NPion1).M(), eventWeight);
         //genhistos.at(signalFlags.at(samp)>0?0:signalFlags.at(samp)+4)->Fill((V4CPion2 + V4NPion2).M(), eventWeight);
 
@@ -389,10 +419,14 @@ void analyze(TString inputfile, Double_t xsec, Int_t samp){
             if(fabs(V4Z.P()-51.6) > 2.) continue;
         }
         else if(ZFromLep == -1){
+            //if(fabs(V4Z.P()-51.6) > 3.) continue;
+            if(NLeptons != 0) continue;
+            //if(NJets < 2) continue;
             if(fabs(V4Z.P()-51.6) > 3. || V4Z.Pt() < 10) continue;
             if(V4Tau1Sol1.M() < 0 || V4Tau2Sol1.M() < 0 || V4Tau1Sol2.M() < 0 || V4Tau2Sol2.M() < 0) continue;
-            if(NLeptons != 0) continue;
         }
+        
+        genhistos.at(signalFlags.at(samp)>0?0:signalFlags.at(samp)+4)->Fill(sameCharge, eventWeight);
 
         //genhistos.at(signalFlags.at(samp)>0?0:signalFlags.at(samp)+4)->Fill(deltaR(V4CPion1, V4NPion11), eventWeight);
         //genhistos.at(signalFlags.at(samp)>0?0:signalFlags.at(samp)+4)->Fill(deltaR(V4CPion1, V4NPion12), eventWeight);
@@ -412,33 +446,36 @@ void analyze(TString inputfile, Double_t xsec, Int_t samp){
 
         vector<double> vars1, vars2;
         vars1.push_back(thetaSol1);
-        vars2.push_back(thetaSol2);
+        vars1.push_back(thetaSol2);
+        //vars2.push_back(thetaSol2);
 
         finalEvents.push_back(vars1);
-        finalEvents.push_back(vars2);
+        //finalEvents.push_back(vars2);
 
         tempMassCuts += eventWeight;
         tempMassCutsError++;
+
+        if(signalFlags.at(samp)<=0) h2Theta.at(signalFlags.at(samp)+3)->Fill(thetaSol1, thetaSol2, 5);
 
     } // end event loop
 
     for(Int_t i = 0; i < nDatasets; i++){
         for(Int_t x = 0; x < Nint(tempMassCuts); x++){
-            Int_t randEntry = Nint(random->Uniform(finalEvents.size()/2-1));
+            Int_t randEntry = Nint(random->Uniform(finalEvents.size()-1));
 
             if(signalFlags.at(samp)>0){
                 datasets.at(0).at(i).add(finalEvents.at(randEntry));
-                datasets.at(0).at(i).add(finalEvents.at(randEntry+1));
+                //datasets.at(0).at(i).add(finalEvents.at(randEntry+1));
                 datasets.at(1).at(i).add(finalEvents.at(randEntry));
-                datasets.at(1).at(i).add(finalEvents.at(randEntry+1));
+                //datasets.at(1).at(i).add(finalEvents.at(randEntry+1));
                 datasets.at(2).at(i).add(finalEvents.at(randEntry));
-                datasets.at(2).at(i).add(finalEvents.at(randEntry+1));
+                //datasets.at(2).at(i).add(finalEvents.at(randEntry+1));
                 datasets.at(3).at(i).add(finalEvents.at(randEntry));
-                datasets.at(3).at(i).add(finalEvents.at(randEntry+1));
+                //datasets.at(3).at(i).add(finalEvents.at(randEntry+1));
             }
             else{
                 datasets.at(signalFlags.at(samp)+3).at(i).add(finalEvents.at(randEntry));
-                datasets.at(signalFlags.at(samp)+3).at(i).add(finalEvents.at(randEntry+1));
+                //datasets.at(signalFlags.at(samp)+3).at(i).add(finalEvents.at(randEntry+1));
             }
         }
     }
@@ -456,9 +493,9 @@ void analyze(TString inputfile, Double_t xsec, Int_t samp){
 
 }
 
-void saveResults(TString calcP)
+void saveResults(TString calcP, TString calcL)
 {
-    cout << endl;
+    cout << endl << endl;
 
     hThetaB->Add(Theta_jj);
     hThetaB->Add(Theta_dy);
@@ -493,10 +530,10 @@ void saveResults(TString calcP)
     Theta_obs3pi4->Add(Theta_Zll);
     Theta_obs3pi4->Add(hThetaS3pi4);
 
-    TH1D *S0andS0 = new TH1D("S0andS0", "S0andS0", 100, -0.005, 0.005);
-    TH1D *S0andSpi4 = new TH1D("S0andSpi4", "S0andSpi4", 100, -0.005, 0.005);
-    TH1D *S0andSpi2 = new TH1D("S0andSpi2", "S0andSpi2", 100, -0.005, 0.005);
-    TH1D *S0andS3pi4 = new TH1D("S0andS3pi4", "S0andS3pi4", 100, -0.005, 0.005);
+    TH1D *S0andS0 = new TH1D("S0andS0", "S0andS0", 100, -0.005, 1.005);
+    TH1D *S0andSpi4 = new TH1D("S0andSpi4", "S0andSpi4", 100, -0.005, 1.005);
+    TH1D *S0andSpi2 = new TH1D("S0andSpi2", "S0andSpi2", 100, -0.005, 1.005);
+    TH1D *S0andS3pi4 = new TH1D("S0andS3pi4", "S0andS3pi4", 100, -0.005, 1.005);
 
     vector<TH1D*> hp;
     hp.push_back(S0andS0); hp.push_back(S0andSpi4); hp.push_back(S0andSpi2); hp.push_back(S0andS3pi4);
@@ -505,28 +542,35 @@ void saveResults(TString calcP)
 
     if(calcP == "true"){
 
-        srand(22);
+        cout << "\033[1;34mMike's method\033[0m\n\n";
+
+        TRandom3 *randGen = new TRandom3();
+        randGen->SetSeed(0);
         for(Int_t i=0; i<4; i++){
             Double_t averageT=0, averageP=0, averagePError=0;
 
             for(Int_t x =0; x < nDatasets; x++){
 
+                if(x!=0) cout << "\e[A" << "\e[A";
+                cout << "[" << string((x+1)/(nDatasets/50),'#') << string(50-(x+1)/(nDatasets/50),' ') << "]  " << 100*(x+1)/nDatasets;
+                cout << "\% completed.   Dataset " << x+1 << " of " << nDatasets << "  " << endl;
+
                 Double_t tval = calcT(datasets.at(0).at(x),datasets.at(i).at(x));
 
                 Double_t ptval;
                 Int_t pval=0;
-                Int_t nperm=1000;
+                Int_t nperm=200;
                 for(Int_t p=0; p<nperm; p++){
-                    ptval = permCalcT(datasets.at(0).at(x),datasets.at(i).at(x));
-                    hp.at(i)->Fill(ptval);
+                    ptval = permCalcT(datasets.at(0).at(x),datasets.at(i).at(x), randGen);
+                    //hp.at(i)->Fill(ptval);
                     if(ptval > tval) pval++;
                     if(p!=0) cout << "\e[A";
-                    //cout << "[" << string((p+1)/(nperm/50),'-') << string(50-(p+1)/(nperm/50),' ') << "]  " << 100*(p+1)/nperm << "\% completed.   Permutation " << p+1 << " of " << nperm;
-                    //cout << "   Dataset " << x+1 << " of " << nDatasets << endl;
+                    cout << "[" << string((p+1)/(nperm/50),'#') << string(50-(p+1)/(nperm/50),' ') << "]  " << 100*(p+1)/nperm << "\% completed.   Permutation " << p+1 << " of " << nperm;
+                    cout << "  " << endl;
                 }
                 Double_t p = pval/Double_t(nperm), pError = Sqrt(p*(1-p)/Double_t(nperm));
 
-                //hp.at(i)->Fill(p);
+                hp.at(i)->Fill(p);
 
                 averageT+=tval;
                 averageP+=p;
@@ -537,10 +581,28 @@ void saveResults(TString calcP)
             averagePError/=Double_t(nDatasets);
 
             cout << "Average T of " << hpNames.at(i) << ": " << averageT << endl;
-            cout << "Average p of " << hpNames.at(i) << ": " << averageP  << " +- " << averagePError << endl << endl;
+            cout << "Average p of " << hpNames.at(i) << ": " << averageP  << " +- " << averagePError << endl << endl << endl;
 
         }
 
+    }
+
+    if(calcL == "true"){
+
+        cout << "\033[1;34mLikelihood\033[0m\n\n";
+
+        for(Int_t i=0; i<4; i++){
+            Double_t Likelihood=1.;
+
+            for(Int_t x = 1; x <= 20; x++){
+
+                Likelihood*=Poisson(Nint(hThetaObs.at(0)->GetBinContent(x)), Nint(hThetaObs.at(i)->GetBinContent(x)));
+                Likelihood/=Poisson(Nint(hThetaObs.at(0)->GetBinContent(x)), Nint(hThetaObs.at(0)->GetBinContent(x)));
+            }
+
+            cout << "Likelihood of " << hpNames.at(i) << " is " << Likelihood << endl;
+        }
+        cout << endl << endl;
     }
 
     TCanvas *c1 = new TCanvas("Histogram", "Histogram", 1000, 600);
@@ -567,6 +629,7 @@ void saveResults(TString calcP)
     histogram(genhistos, histogramNames, c1, "H mass", "Normalized yield", "Zmass");
     //histogram(genhistos2, histogramNames2, c1, "Z mass", "Fraction", "Zmass");
     histogram(hTheta, histogramNames, c1, "#Theta variable", "Normalized yield", "ThetaFit");
+    histogram(h2Theta, "Theta corr", c1, "ThetaCorr");
 
     if(calcP == "true"){
         for(Int_t i=0; i<4; i++){
@@ -627,6 +690,38 @@ void histogram(TH1D *histo, const TString histName, TCanvas *can, const TString 
 }
 
 /*
+ * FUNCTION FOR SAVING ONE 2D HISTOGRAM
+ */
+
+void histogram(TH2D *histo, const TString histName, TCanvas *can, const TString name){
+ 
+    histo->SetLineWidth(3);
+    histo->Draw();
+    // add axis labels
+    histo->SetTitle(histName); // title on top
+
+    can->SaveAs(name + ".jpg");
+}
+
+/*
+ * FUNCTION FOR SAVING MULTIPLE 2D HISTOGRAM
+ */
+
+void histogram(vector<TH2D*> histos, const TString histName, TCanvas *can, const TString name){
+ 
+    can->Clear();
+    can->Divide(2,2);
+    for(Int_t x=0; x<=3; x++){
+        can->cd(x+1);
+        histos.at(x)->Draw();
+        //histos.at(x)->SetTitle(TString::Format(histName + " %i", x));
+        can->cd();
+    }
+
+    can->SaveAs(name + ".jpg");
+}
+
+/*
  * FUNCTION FOR SAVING MULTIPLE HISTOGRAMS
  */
 
@@ -647,6 +742,7 @@ void histogram(vector<TH1D*> histos, vector<TString> histNames, TCanvas *can, co
 
     max*=1.1;
     min*=0.9;
+    if(name == "Theta"){max=.1; min=0;}
 
     vector<Int_t> colors;
     colors.push_back(kRed); colors.push_back(kBlue); colors.push_back(kGreen); colors.push_back(kGreen+3); colors.push_back(kMagenta+2); colors.push_back(kBlack); 
