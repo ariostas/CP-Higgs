@@ -43,12 +43,15 @@ void histogram(TH2D*, const TString, TCanvas*, const TString);
 void histogram(vector<TH2D*>, const TString, TCanvas*, const TString);
 void histogram(vector<TH1D*>, vector<TString>, TCanvas*, const TString, const TString, const TString);
 void histogramS(vector<TH1D*>, vector<TString>, TCanvas*, const TString, const TString, const TString);
-void saveResults(TString, TString);
+void histogram(TH1D*, TH1D*, const TString, TCanvas*, const TString, const TString, const TString);
+void saveResults(TString, TString, TString);
 void analyze(TString, Double_t, Int_t);
 Double_t deltaR(TLorentzVector, TLorentzVector);
 Double_t getTheta(TLorentzVector, TLorentzVector, TLorentzVector, TLorentzVector, TLorentzVector, TLorentzVector);
 TLorentzVector getNeut1(TLorentzVector, TLorentzVector, TLorentzVector, TLorentzVector, Int_t);
 TLorentzVector getNeut2(TLorentzVector, TLorentzVector, TLorentzVector, TLorentzVector, TLorentzVector);
+Double_t getChiSquared(TH1D*, TH1D*);
+Double_t getLikelihood(TH1D*, TH1D*);
 
 // Initialize histograms
 TH1D *Theta_obs0 = new TH1D("Theta_obs0", "Theta_obs0", 20, -3.1416, 3.1416);
@@ -92,7 +95,7 @@ TH2D *h2Theta3pi4 = new TH2D("h2Theta3pi4", "h2Theta3pi4", 20, -3.1416, 3.1416, 
 
 // Initialize data sets
 vector<vector<Dataset> > datasets;
-const Int_t nDatasets = 100;
+const Int_t nDatasets = 1000;
 
 // Initialize storage variables
 vector<Double_t> total, selection, kinematicCuts, massCuts;
@@ -107,7 +110,7 @@ vector<TH2D*> h2Theta;
  * MAIN FUNCTION
  */
 
-void cphiggs(TString calcP = "false", TString calcL = "true", TString sample = "all", TString inputFile = "xsec.txt"){
+void cphiggs(TString calcP = "false", TString calcChi = "true", TString calcL = "true", TString sample = "all", TString inputFile = "xsec.txt"){
     
     cout << "\n\nStarting process...\n\n";
 
@@ -206,7 +209,7 @@ void cphiggs(TString calcP = "false", TString calcL = "true", TString sample = "
     }
     
     // Save results
-    saveResults(calcP, calcL);
+    saveResults(calcP,calcChi, calcL);
     
 }
 
@@ -228,6 +231,10 @@ void analyze(TString inputfile, Double_t xsec, Int_t samp){
     Double_t CPion1_Eta, CPion2_Eta;
     Double_t CPion1_Phi, CPion2_Phi;
     Double_t CPion1_Mass, CPion2_Mass;
+    Double_t CPions1_Pt, CPions2_Pt;
+    Double_t CPions1_Eta, CPions2_Eta;
+    Double_t CPions1_Phi, CPions2_Phi;
+    Double_t CPions1_Mass, CPions2_Mass;
 
     //Neutral pions
     Double_t NPion11_Pt, NPion12_Pt;
@@ -238,6 +245,10 @@ void analyze(TString inputfile, Double_t xsec, Int_t samp){
     Double_t NPion21_Eta, NPion22_Eta;
     Double_t NPion21_Phi, NPion22_Phi;
     Double_t NPion21_Mass, NPion22_Mass;
+    Double_t NPions1_Pt, NPions2_Pt;
+    Double_t NPions1_Eta, NPions2_Eta;
+    Double_t NPions1_Phi, NPions2_Phi;
+    Double_t NPions1_Mass, NPions2_Mass;
 
     //Jets from Z
     Double_t ZJet1_Pt, ZJet2_Pt;
@@ -254,7 +265,7 @@ void analyze(TString inputfile, Double_t xsec, Int_t samp){
     //Reco Z
     Double_t ZReco_Pt, ZReco_Eta, ZReco_Phi, ZReco_Mass;
 
-    const TString inputFileTemp = "/afs/cern.ch/work/a/ariostas/public/CP-Higgs_Samples_small_2015_8_19/" + inputfile + ".root";
+    const TString inputFileTemp = "/afs/cern.ch/work/a/ariostas/public/CP-Higgs_Samples_small/" + inputfile + ".root";
     inputfile = "Reading " + inputfile + " events... ";
     inputfile.Resize(60);
     cout << inputfile << endl;
@@ -283,6 +294,14 @@ void analyze(TString inputfile, Double_t xsec, Int_t samp){
     intree->SetBranchAddress("CPion2_Eta",      &CPion2_Eta);
     intree->SetBranchAddress("CPion2_Phi",      &CPion2_Phi);
     intree->SetBranchAddress("CPion2_Mass",     &CPion2_Mass);
+    intree->SetBranchAddress("CPions1_Pt",      &CPions1_Pt);
+    intree->SetBranchAddress("CPions1_Eta",     &CPions1_Eta);
+    intree->SetBranchAddress("CPions1_Phi",     &CPions1_Phi);
+    intree->SetBranchAddress("CPions1_Mass",    &CPions1_Mass);
+    intree->SetBranchAddress("CPions2_Pt",      &CPions2_Pt);
+    intree->SetBranchAddress("CPions2_Eta",     &CPions2_Eta);
+    intree->SetBranchAddress("CPions2_Phi",     &CPions2_Phi);
+    intree->SetBranchAddress("CPions2_Mass",    &CPions2_Mass);
     intree->SetBranchAddress("NPion11_Pt",      &NPion11_Pt);
     intree->SetBranchAddress("NPion11_Eta",     &NPion11_Eta);
     intree->SetBranchAddress("NPion11_Phi",     &NPion11_Phi);
@@ -299,6 +318,13 @@ void analyze(TString inputfile, Double_t xsec, Int_t samp){
     intree->SetBranchAddress("NPion22_Eta",     &NPion22_Eta);
     intree->SetBranchAddress("NPion22_Phi",     &NPion22_Phi);
     intree->SetBranchAddress("NPion22_Mass",    &NPion22_Mass);
+    intree->SetBranchAddress("NPions1_Eta",     &NPions1_Eta);
+    intree->SetBranchAddress("NPions1_Phi",     &NPions1_Phi);
+    intree->SetBranchAddress("NPions1_Mass",    &NPions1_Mass);
+    intree->SetBranchAddress("NPions2_Pt",      &NPions2_Pt);
+    intree->SetBranchAddress("NPions2_Eta",     &NPions2_Eta);
+    intree->SetBranchAddress("NPions2_Phi",     &NPions2_Phi);
+    intree->SetBranchAddress("NPions2_Mass",    &NPions2_Mass);
     intree->SetBranchAddress("ZJet1_Pt",        &ZJet1_Pt);
     intree->SetBranchAddress("ZJet1_Eta",       &ZJet1_Eta);
     intree->SetBranchAddress("ZJet1_Phi",       &ZJet1_Phi);
@@ -329,6 +355,7 @@ void analyze(TString inputfile, Double_t xsec, Int_t samp){
 
         if(NCPions1 != 1 || NCPions2 != 1) continue;
         if(NNPions1 != 1 || NNPions2 != 1) continue;
+        //if(NNPions1 < 1 || NNPions2 < 1) continue;
 
         TLorentzVector V4Z, V4H, V4CPion1, V4CPion2, V4NPion11, V4NPion12, V4NPion21, V4NPion22, V4NPion1, V4NPion2, V4Init;
 
@@ -344,6 +371,9 @@ void analyze(TString inputfile, Double_t xsec, Int_t samp){
 
         V4NPion1 = V4NPion11 + V4NPion12;
         V4NPion2 = V4NPion21 + V4NPion22;
+
+        //if(NNPions1 != 1) V4NPion1.SetPtEtaPhiM(NPions1_Pt, NPions1_Eta, NPions1_Phi, NPions1_Mass);
+        //if(NNPions2 != 1) V4NPion2.SetPtEtaPhiM(NPions2_Pt, NPions2_Eta, NPions2_Phi, NPions2_Mass);
 
         Int_t ZFromLep;
         if(ZLepton1_Pt != 0. && ZLepton2_Pt != 0.){
@@ -368,7 +398,7 @@ void analyze(TString inputfile, Double_t xsec, Int_t samp){
             continue;
         }
 
-        if(ZFromLep != -1) continue;
+        //if(ZFromLep != -1) continue;
 
         //tempSelection += eventWeight;
         tempSelectionError++;
@@ -441,8 +471,8 @@ void analyze(TString inputfile, Double_t xsec, Int_t samp){
         thetaSol1 = getTheta(V4CPion1, V4NPion1, V4CPion2, V4NPion2, V4Tau1Sol1, V4Tau2Sol1);
         thetaSol2 = getTheta(V4CPion1, V4NPion1, V4CPion2, V4NPion2, V4Tau1Sol2, V4Tau2Sol2);
 
-        hThetaTemp.at(signalFlags.at(samp)+3)->Fill(thetaSol1, eventWeight);
-        hThetaTemp.at(signalFlags.at(samp)+3)->Fill(thetaSol2, eventWeight);
+        hThetaTemp.at(signalFlags.at(samp)+3)->Fill(thetaSol1, eventWeight/2.);
+        hThetaTemp.at(signalFlags.at(samp)+3)->Fill(thetaSol2, eventWeight/2.);
 
         vector<double> vars1, vars2;
         vars1.push_back(thetaSol1);
@@ -493,7 +523,7 @@ void analyze(TString inputfile, Double_t xsec, Int_t samp){
 
 }
 
-void saveResults(TString calcP, TString calcL)
+void saveResults(TString calcP, TString calcChi, TString calcL)
 {
     cout << endl << endl;
 
@@ -530,13 +560,23 @@ void saveResults(TString calcP, TString calcL)
     Theta_obs3pi4->Add(Theta_Zll);
     Theta_obs3pi4->Add(hThetaS3pi4);
 
-    TH1D *S0andS0 = new TH1D("S0andS0", "S0andS0", 100, -0.005, 1.005);
-    TH1D *S0andSpi4 = new TH1D("S0andSpi4", "S0andSpi4", 100, -0.005, 1.005);
-    TH1D *S0andSpi2 = new TH1D("S0andSpi2", "S0andSpi2", 100, -0.005, 1.005);
-    TH1D *S0andS3pi4 = new TH1D("S0andS3pi4", "S0andS3pi4", 100, -0.005, 1.005);
+    TH1D *pS0andS0 = new TH1D("pS0andS0", "pS0andS0", 10, -0.005, 1.005);
+    TH1D *pS0andSpi4 = new TH1D("pS0andSpi4", "pS0andSpi4", 10, -0.005, 1.005);
+    TH1D *pS0andSpi2 = new TH1D("pS0andSpi2", "pS0andSpi2", 10, -0.005, 1.005);
+    TH1D *pS0andS3pi4 = new TH1D("pS0andS3pi4", "pS0andS3pi4", 10, -0.005, 1.005);
+    TH1D *chiS0andS0 = new TH1D("chiS0andS0", "chiS0andS0", 10, -0.005, 1.005);
+    TH1D *chiS0andSpi4 = new TH1D("chiS0andSpi4", "chiS0andSpi4", 10, -0.005, 1.005);
+    TH1D *chiS0andSpi2 = new TH1D("chiS0andSpi2", "chiS0andSpi2", 10, -0.005, 1.005);
+    TH1D *chiS0andS3pi4 = new TH1D("chiS0andS3pi4", "chiS0andS3pi4", 10, -0.005, 1.005);
+    TH1D *lS0andS0 = new TH1D("lS0andS0", "lS0andS0", 100, -0.0005, 0.005);
+    TH1D *lS0andSpi4 = new TH1D("lS0andSpi4", "lS0andSpi4", 100, -0.0005, 0.005);
+    TH1D *lS0andSpi2 = new TH1D("lS0andSpi2", "lS0andSpi2", 100, -0.0005, 0.005);
+    TH1D *lS0andS3pi4 = new TH1D("lS0andS3pi4", "lS0andS3pi4", 100, -0.0005, 0.005);
 
-    vector<TH1D*> hp;
-    hp.push_back(S0andS0); hp.push_back(S0andSpi4); hp.push_back(S0andSpi2); hp.push_back(S0andS3pi4);
+    vector<TH1D*> hp, hl, hchi;
+    hp.push_back(pS0andS0); hp.push_back(pS0andSpi4); hp.push_back(pS0andSpi2); hp.push_back(pS0andS3pi4);
+    hchi.push_back(chiS0andS0); hchi.push_back(chiS0andSpi4); hchi.push_back(chiS0andSpi2); hchi.push_back(chiS0andS3pi4);
+    hl.push_back(lS0andS0); hl.push_back(lS0andSpi4); hl.push_back(lS0andSpi2); hl.push_back(lS0andS3pi4);
     vector<TString> hpNames;
     hpNames.push_back("Delta=0 and Delta=0"); hpNames.push_back("Delta=0 and Delta=pi/4"); hpNames.push_back("Delta=0 and Delta=pi/2"); hpNames.push_back("Delta=0 and Delta=3pi/4");
 
@@ -555,13 +595,16 @@ void saveResults(TString calcP, TString calcL)
                 cout << "[" << string((x+1)/(nDatasets/50),'#') << string(50-(x+1)/(nDatasets/50),' ') << "]  " << 100*(x+1)/nDatasets;
                 cout << "\% completed.   Dataset " << x+1 << " of " << nDatasets << "  " << endl;
 
-                Double_t tval = calcT(datasets.at(0).at(x),datasets.at(i).at(x));
+                Double_t tval;
+                if(i == 0) tval = calcT(datasets.at(0).at(x),datasets.at(i).at( (x+1==nDatasets?0:x+1) ));
+                else tval = calcT(datasets.at(0).at(x),datasets.at(i).at(x));
 
                 Double_t ptval;
                 Int_t pval=0;
                 Int_t nperm=200;
                 for(Int_t p=0; p<nperm; p++){
-                    ptval = permCalcT(datasets.at(0).at(x),datasets.at(i).at(x), randGen);
+                    if(i == 0) ptval = permCalcT(datasets.at(0).at(x),datasets.at(i).at( (x+1==nDatasets?0:x+1) ), randGen);
+                    else ptval = permCalcT(datasets.at(0).at(x),datasets.at(i).at(x), randGen);
                     //hp.at(i)->Fill(ptval);
                     if(ptval > tval) pval++;
                     if(p!=0) cout << "\e[A";
@@ -587,9 +630,116 @@ void saveResults(TString calcP, TString calcL)
 
     }
 
+    TH1D *tempS01 = new TH1D("tempS01", "tempS01", 20, -3.1416, 3.1416);
+    TH1D *tempS02 = new TH1D("tempS02", "tempS02", 20, -3.1416, 3.1416);
+    TH1D *tempSpi4 = new TH1D("tempSpi4", "tempSpi4", 20, -3.1416, 3.1416);
+    TH1D *tempSpi2 = new TH1D("tempSpi2", "tempSpi2", 20, -3.1416, 3.1416);
+    TH1D *tempS3pi4 = new TH1D("tempS3pi4", "tempS3pi4", 20, -3.1416, 3.1416);
+
+    if(calcChi == "true"){
+
+        cout << "\033[1;34mChi squared test\033[0m\n\n";   
+
+        for(Int_t x = 0; x < nDatasets; x++){        
+
+            for(Int_t i = 0; i < datasets.at(0).at(x).size(); i++){
+                tempS01->Fill(datasets.at(0).at(x).get(i,0), 0.5);
+                tempS01->Fill(datasets.at(0).at(x).get(i,1), 0.5);
+            }
+            for(Int_t i = 0; i < datasets.at(0).at( (x+1==nDatasets?0:x+1) ).size(); i++){
+                tempS02->Fill(datasets.at(0).at( (x+1==nDatasets?0:x+1) ).get(i,0), 0.5);
+                tempS02->Fill(datasets.at(0).at( (x+1==nDatasets?0:x+1) ).get(i,1), 0.5);
+            }
+            for(Int_t i = 0; i < datasets.at(1).at(x).size(); i++){
+                tempSpi4->Fill(datasets.at(1).at(x).get(i,0), 0.5);
+                tempSpi4->Fill(datasets.at(1).at(x).get(i,1), 0.5);
+            }
+            for(Int_t i = 0; i < datasets.at(2).at(x).size(); i++){
+                tempSpi2->Fill(datasets.at(2).at(x).get(i,0), 0.5);
+                tempSpi2->Fill(datasets.at(2).at(x).get(i,1), 0.5);
+            }
+            for(Int_t i = 0; i < datasets.at(3).at(x).size(); i++){
+                tempS3pi4->Fill(datasets.at(3).at(x).get(i,0), 0.5);
+                tempS3pi4->Fill(datasets.at(3).at(x).get(i,1), 0.5);
+            }
+
+            Double_t chiS01andS02=0, chiS01andSpi4=0, chiS01andSpi2=0, chiS01andS3pi4=0;
+
+            chiS01andS02 = getChiSquared(tempS01, tempS02);
+            chiS01andSpi4 = getChiSquared(tempS01, tempSpi4);
+            chiS01andSpi2 = getChiSquared(tempS01, tempSpi2);
+            chiS01andS3pi4 = getChiSquared(tempS01, tempS3pi4);
+            
+            Double_t pvalS01andS02=0, pvalS01andSpi4=0, pvalS01andSpi2=0, pvalS01andS3pi4=0;
+
+            pvalS01andS02 = TMath::Prob(chiS01andS02, 19);
+            pvalS01andSpi4 = TMath::Prob(chiS01andSpi4, 19);
+            pvalS01andSpi2 = TMath::Prob(chiS01andSpi2, 19);
+            pvalS01andS3pi4 = TMath::Prob(chiS01andS3pi4, 19);
+
+            chiS0andS0->Fill(pvalS01andS02);
+            chiS0andSpi4->Fill(pvalS01andSpi4);
+            chiS0andSpi2->Fill(pvalS01andSpi2);
+            chiS0andS3pi4->Fill(pvalS01andS3pi4);
+
+            tempS01->Reset("M");
+            tempS02->Reset("M");
+            tempSpi4->Reset("M");
+            tempSpi2->Reset("M");
+            tempS3pi4->Reset("M");
+
+        }
+
+    }
+
     if(calcL == "true"){
 
         cout << "\033[1;34mLikelihood\033[0m\n\n";
+
+        for(Int_t x = 0; x < nDatasets; x++){        
+
+            for(Int_t i = 0; i < datasets.at(0).at(x).size(); i++){
+                tempS01->Fill(datasets.at(0).at(x).get(i,0), 0.5);
+                tempS01->Fill(datasets.at(0).at(x).get(i,1), 0.5);
+            }
+            for(Int_t i = 0; i < datasets.at(0).at( (x+1==nDatasets?0:x+1) ).size(); i++){
+                tempS02->Fill(datasets.at(0).at( (x+1==nDatasets?0:x+1) ).get(i,0), 0.5);
+                tempS02->Fill(datasets.at(0).at( (x+1==nDatasets?0:x+1) ).get(i,1), 0.5);
+            }
+            for(Int_t i = 0; i < datasets.at(1).at(x).size(); i++){
+                tempSpi4->Fill(datasets.at(1).at(x).get(i,0), 0.5);
+                tempSpi4->Fill(datasets.at(1).at(x).get(i,1), 0.5);
+            }
+            for(Int_t i = 0; i < datasets.at(2).at(x).size(); i++){
+                tempSpi2->Fill(datasets.at(2).at(x).get(i,0), 0.5);
+                tempSpi2->Fill(datasets.at(2).at(x).get(i,1), 0.5);
+            }
+            for(Int_t i = 0; i < datasets.at(3).at(x).size(); i++){
+                tempS3pi4->Fill(datasets.at(3).at(x).get(i,0), 0.5);
+                tempS3pi4->Fill(datasets.at(3).at(x).get(i,1), 0.5);
+            }
+
+            Double_t likeS01andS02=0, likeS01andSpi4=0, likeS01andSpi2=0, likeS01andS3pi4=0;
+
+            likeS01andS02 = getLikelihood(tempS01, tempS02);
+            likeS01andSpi4 = getLikelihood(tempS01, tempSpi4);
+            likeS01andSpi2 = getLikelihood(tempS01, tempSpi2);
+            likeS01andS3pi4 = getLikelihood(tempS01, tempS3pi4);
+
+            lS0andS0->Fill(likeS01andS02, 2);
+            lS0andSpi4->Fill(likeS01andSpi4, 2);
+            lS0andSpi2->Fill(likeS01andSpi2, 2);
+            lS0andS3pi4->Fill(likeS01andS3pi4, 2);
+
+            //cout << likeS01andS02 << " " << likeS01andSpi4 << " " << likeS01andSpi2 << " " << likeS01andS3pi4 << endl;
+
+            tempS01->Reset("M");
+            tempS02->Reset("M");
+            tempSpi4->Reset("M");
+            tempSpi2->Reset("M");
+            tempS3pi4->Reset("M");
+
+        }
 
         for(Int_t i=0; i<4; i++){
             Double_t Likelihood=1.;
@@ -600,9 +750,9 @@ void saveResults(TString calcP, TString calcL)
                 Likelihood/=Poisson(Nint(hThetaObs.at(0)->GetBinContent(x)), Nint(hThetaObs.at(0)->GetBinContent(x)));
             }
 
-            cout << "Likelihood of " << hpNames.at(i) << " is " << Likelihood << endl;
+            //cout << "Likelihood of " << hpNames.at(i) << " is " << Likelihood << endl;
         }
-        cout << endl << endl;
+
     }
 
     TCanvas *c1 = new TCanvas("Histogram", "Histogram", 1000, 600);
@@ -631,10 +781,29 @@ void saveResults(TString calcP, TString calcL)
     histogram(hTheta, histogramNames, c1, "#Theta variable", "Normalized yield", "ThetaFit");
     histogram(h2Theta, "Theta corr", c1, "ThetaCorr");
 
-    if(calcP == "true"){
+    if(calcP == "true" && calcChi == "true"){
         for(Int_t i=0; i<4; i++){
             TString filename="p_"; filename+=i;
-            histogram(hp.at(i), hpNames.at(i), c1, "p distribution", "Fraction", filename);
+            histogram(hp.at(i), hchi.at(i), hpNames.at(i), c1, "p values", "Toys", filename);
+        }
+    }
+    else if(calcP == "true"){
+        for(Int_t i=0; i<4; i++){
+            TString filename="p_"; filename+=i;
+            histogram(hp.at(i), hpNames.at(i), c1, "p distribution (Mike)", "Fraction", filename);
+        }
+    }
+    else if(calcChi == "true"){
+        for(Int_t i=0; i<4; i++){
+            TString filename="p_"; filename+=i;
+            histogram(hl.at(i), hpNames.at(i), c1, "p distribution (Chi squared)", "Fraction", filename);
+        }
+    }
+
+    if(calcL == "true"){
+        for(Int_t i=0; i<4; i++){
+            TString filename="l_"; filename+=i;
+            histogram(hl.at(i), hpNames.at(i), c1, "Likelihood values", "Toys", filename);
         }
     }
 
@@ -651,10 +820,10 @@ void saveResults(TString calcP, TString calcL)
     Theta_dy->Write();
     Theta_ZZ->Write();
     Theta_Zll->Write();
-    S0andS0->Write();
-    S0andSpi4->Write();
-    S0andSpi2->Write();
-    S0andS3pi4->Write();
+    pS0andS0->Write();
+    pS0andSpi4->Write();
+    pS0andSpi2->Write();
+    pS0andS3pi4->Write();
     f.Close();
 
     cout << "\n\n\nProcess finished\nPrinting results...\n\n" << "\033[1;34mResults\033[0m\n\n";
@@ -671,6 +840,31 @@ void saveResults(TString calcP, TString calcL)
 
 }
 
+Double_t getChiSquared(TH1D *histo1, TH1D *histo2){
+
+    Double_t chiSquared=0;
+
+    for(Int_t i = 1; i <= 20; i++){
+        chiSquared += Power(histo1->Integral()*histo2->GetBinContent(i) - histo2->Integral()*histo1->GetBinContent(i) , 2)/(histo1->Integral()*histo2->Integral()*(histo1->GetBinContent(i) + histo2->GetBinContent(i)));
+    }
+
+    return chiSquared;
+}
+
+Double_t getLikelihood(TH1D *histo1, TH1D *histo2){
+
+    Double_t Likelihood=1.;
+
+    for(Int_t x = 1; x <= 20; x++){
+
+        Likelihood*=Poisson(Nint(histo1->GetBinContent(x)), Nint(histo2->GetBinContent(x)));
+        Likelihood/=Poisson(Nint(histo1->GetBinContent(x)), Nint(histo1->GetBinContent(x)));
+    }
+
+    return Likelihood;
+}
+
+
 /*
  * FUNCTION FOR SAVING ONE HISTOGRAM
  */
@@ -685,6 +879,40 @@ void histogram(TH1D *histo, const TString histName, TCanvas *can, const TString 
     histo->GetXaxis()->SetTitle(xTitle);
     histo->GetYaxis()->SetTitle(yTitle);
     histo->SetTitle(histName); // title on top
+
+    can->SaveAs(name + ".jpg");
+}
+
+/*
+ * FUNCTION FOR SAVING TWO (P-value) HISTOGRAMs
+ */
+
+void histogram(TH1D *histo1, TH1D *histo2, const TString histName, TCanvas *can, const TString xTitle, const TString yTitle, const TString name){
+    
+    Double_t max = histo1->GetMaximum();
+    if(histo2->GetMaximum() > max) max = histo2->GetMaximum();
+
+    histo1->SetMaximum(max*1.2);
+    histo2->SetMaximum(max*1.2);
+    histo1->SetMinimum(0);
+    histo2->SetMinimum(0);
+
+    histo1->SetLineWidth(3);
+    histo2->SetLineWidth(3);
+    histo2->SetLineColor(kRed);
+    histo1->Draw();
+    histo2->Draw("same");
+    // add axis labels
+    histo1->GetXaxis()->SetTitle(xTitle);
+    histo1->GetYaxis()->SetTitle(yTitle);
+    histo1->SetTitle(histName); // title on top
+
+    TLegend *leg = new TLegend(0.605,0.675,0.885,0.875);
+    leg->SetTextFont(72);
+    leg->SetTextSize(0.04);
+    leg->AddEntry(histo1, "Mike's method","l");
+    leg->AddEntry(histo2, "Chi-squared test","l");
+    leg->Draw();
 
     can->SaveAs(name + ".jpg");
 }
@@ -742,7 +970,7 @@ void histogram(vector<TH1D*> histos, vector<TString> histNames, TCanvas *can, co
 
     max*=1.1;
     min*=0.9;
-    if(name == "Theta"){max=.1; min=0;}
+    //if(name == "Theta"){max=.1; min=0;}
 
     vector<Int_t> colors;
     colors.push_back(kRed); colors.push_back(kBlue); colors.push_back(kGreen); colors.push_back(kGreen+3); colors.push_back(kMagenta+2); colors.push_back(kBlack); 
