@@ -43,6 +43,7 @@ void select(const TString sample="", const TString tempinput="bacon_sample.root"
     // read input input file
     TChain chain("Delphes");
     if(eosflag==0) chain.Add("/afs/cern.ch/work/a/ariostas/public/CP-Higgs_Samples/" + tempinput);
+    if(eosflag==1) chain.Add("/afs/cern.ch/work/a/ariostas/private/CP-Higgs_Samples_temp/" + tempinput);
     else chain.Add(tempinput);
     ExRootTreeReader *treeReader = new ExRootTreeReader(&chain);
     Long64_t numberOfEntries = treeReader->GetEntries();
@@ -81,7 +82,7 @@ void select(const TString sample="", const TString tempinput="bacon_sample.root"
 
     // Output file and trees
     TString output = "/afs/cern.ch/work/a/ariostas/public/CP-Higgs_Samples_small/out_" + tempinput;
-    if(eosflag != 0) output = "/afs/cern.ch/work/a/ariostas/public/CP-Higgs_Samples_small_autogen/out_" + sample + ".root";
+    if(eosflag != 0 && eosflag != 1) output = "/afs/cern.ch/work/a/ariostas/public/CP-Higgs_Samples_small_autogen/out_" + sample + ".root";
     TFile *outfile = new TFile(output, "RECREATE");
 
     TTree *infoTree = new TTree("Count", "Count");
@@ -292,13 +293,20 @@ void select(const TString sample="", const TString tempinput="bacon_sample.root"
                 if(!isDifferent) continue;
 
                 bool closeToLep = false;
-                if(ZElectron1 && ZElectron2){
-                    if(deltaR(ZElectron1->P4(), chargedHadron->P4()) < 0.4) closeToLep = true;
-                    if(deltaR(ZElectron2->P4(), chargedHadron->P4()) < 0.4) closeToLep = true;
+                for (Int_t iElectron=0; iElectron<branchElectron->GetEntries(); iElectron++) {
+                    electron = (Electron*) branchElectron->At(iElectron);
+            
+                    if(electron->P4().P() < 10. || electron->IsolationVar > 0.4) continue;
+                    if(deltaR(electron->P4(), chargedHadron->P4()) < 0.5) closeToLep = true;
+
                 }
-                if(ZMuon1 && ZMuon2){
-                    if(deltaR(ZMuon1->P4(), chargedHadron->P4()) < 0.4) closeToLep = true;
-                    if(deltaR(ZMuon2->P4(), chargedHadron->P4()) < 0.4) closeToLep = true;
+
+                for (Int_t iMuon=0; iMuon<branchMuon->GetEntries(); iMuon++) {
+                    muon = (Muon*) branchMuon->At(iMuon);
+            
+                    if(muon->P4().P() < 10. || muon->IsolationVar > 0.4) continue;
+                    if(deltaR(muon->P4(), chargedHadron->P4()) < 0.5) closeToLep = true;
+
                 }
 
                 if(closeToLep) continue;

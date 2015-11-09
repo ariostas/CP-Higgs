@@ -109,6 +109,7 @@ void cleanUpMergedFiles(TString sampName = "test") {
     intree->SetBranchAddress("NPion22_Eta",     &NPion22_Eta);
     intree->SetBranchAddress("NPion22_Phi",     &NPion22_Phi);
     intree->SetBranchAddress("NPion22_Mass",    &NPion22_Mass);
+    intree->SetBranchAddress("NPions1_Pt",      &NPions1_Pt);
     intree->SetBranchAddress("NPions1_Eta",     &NPions1_Eta);
     intree->SetBranchAddress("NPions1_Phi",     &NPions1_Phi);
     intree->SetBranchAddress("NPions1_Mass",    &NPions1_Mass);

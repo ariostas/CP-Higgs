@@ -3,6 +3,7 @@
 *.lo
 *.o
 *.obj
+*.d
 
 # Precompiled Headers
 *.gch
@@ -33,6 +34,7 @@ __init__.py
 
 ## Images
 *.jpg
+*.png
 
 ## ROOT OBJECT
 *.root
