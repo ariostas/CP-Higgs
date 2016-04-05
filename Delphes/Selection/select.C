@@ -37,8 +37,8 @@ using namespace std;
 // Declare functions
 Double_t deltaR(TLorentzVector, TLorentzVector);
 
-void select(const TString sample="", const TString tempinput="bacon_sample.root", const Double_t xsec = 1,
-    const Int_t eosflag = 2){
+void select(const TString sample="", const TString tempinput="zh_delphes_0pi12_1.root", const Double_t xsec = 1,
+    const Int_t eosflag = 1){
 
     // read input input file
     TChain chain("Delphes");
@@ -54,8 +54,8 @@ void select(const TString sample="", const TString tempinput="bacon_sample.root"
     TClonesArray *branchPhoton = treeReader->UseBranch("Photon");
     TClonesArray *branchJet = treeReader->UseBranch("Jet");
     TClonesArray *branchParticle = treeReader->UseBranch("Particle");
-    TClonesArray *branchChargedHadron = treeReader->UseBranch("ChargedHadron");
-    TClonesArray *branchNeutralHadron = treeReader->UseBranch("NeutralHadron");
+    TClonesArray *branchChargedHadron = treeReader->UseBranch("Track");
+    TClonesArray *branchNeutralHadron = treeReader->UseBranch("Tower");
     
     if (!(branchJet)) {
         cout << "  file broken" << endl;

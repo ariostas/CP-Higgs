@@ -38,6 +38,8 @@
 using namespace TMath;
 using namespace std;
 
+TH1D *histotest = new TH1D("histotest", "histotest", 100, 0, 100);
+
 // Declare functions
 void histogram(TH1D*, const TString, TCanvas*, const TString, const TString, const TString);
 void histogram(TH2D*, const TString, TCanvas*, const TString);
@@ -53,6 +55,7 @@ TLorentzVector getNeut1(TLorentzVector, TLorentzVector, TLorentzVector, TLorentz
 TLorentzVector getNeut2(TLorentzVector, TLorentzVector, TLorentzVector, TLorentzVector, TLorentzVector);
 Double_t getChiSquared(TH1D*, TH1D*);
 Double_t getLikelihood(TH1D*, TH1D*);
+void calcAccuracy(vector<TH1D*>);
 
 // Initialize data sets
 vector<vector<Dataset> > datasets;
@@ -69,7 +72,7 @@ vector<TH1D*> hTheta, hThetaObs;
  * MAIN FUNCTION
  */
 
-void cphiggs(TString calcP = "true", TString calcChi = "true", TString calcL = "true", TString sample = "all", TString inputFile = "xsec.txt"){
+void cphiggsAlt(TString calcP = "false", TString calcChi = "false", TString calcL = "false", TString sample = "all", TString inputFile = "xsec.txt"){
     
     cout << "\n\nStarting process...\n\n";
 
@@ -107,10 +110,7 @@ void cphiggs(TString calcP = "true", TString calcChi = "true", TString calcL = "
             selection.push_back(0);     selectionError.push_back(0);
             kinematicCuts.push_back(0); kinematicCutsError.push_back(0);
             massCuts.push_back(0);      massCutsError.push_back(0);
-            if(atof(string(signalFlag).c_str()) <= 0){
-                datasets.push_back(tempVectorDataset);
-                datasets.push_back(tempVectorDataset);
-            }
+            if(atof(string(signalFlag).c_str()) <= 0) datasets.push_back(tempVectorDataset);
             hTheta.push_back(new TH1D(sampleName, sampleName, 20, -3.1416, 3.1416));
             
         }
@@ -128,55 +128,53 @@ void analyze(TString inputfile, Double_t xsec, Int_t samp){
     
     TString inputFile = inputfile;
 
-    vector<vector<Double_t> > finalEvents1, finalEvents2;
+    vector<vector<Double_t> > finalEvents;
 
     TRandom3 *random = new TRandom3();
     random->SetSeed(0);
 
     //Event info
     Double_t eventWeight;
-    Int_t NLeptons, NJets, NTauJets, hasH, sameCharge, NCPions1, NCPions2, NNPions1, NNPions2;
+    Int_t NLeptons, NJets, NTauJets, hasH, ZFromLep, oppositeTrackCharge;
 
     //Charged pions
-    Double_t CPion1_Pt, CPion2_Pt;
-    Double_t CPion1_Eta, CPion2_Eta;
-    Double_t CPion1_Phi, CPion2_Phi;
+    Double_t CPion1_Pt  , CPion2_Pt  ;
+    Double_t CPion1_Eta , CPion2_Eta ;
+    Double_t CPion1_Phi , CPion2_Phi ;
     Double_t CPion1_Mass, CPion2_Mass;
-    Double_t CPions1_Pt, CPions2_Pt;
-    Double_t CPions1_Eta, CPions2_Eta;
-    Double_t CPions1_Phi, CPions2_Phi;
-    Double_t CPions1_Mass, CPions2_Mass;
 
     //Neutral pions
-    Double_t NPion11_Pt, NPion12_Pt;
-    Double_t NPion11_Eta, NPion12_Eta;
-    Double_t NPion11_Phi, NPion12_Phi;
-    Double_t NPion11_Mass, NPion12_Mass;
-    Double_t NPion21_Pt, NPion22_Pt;
-    Double_t NPion21_Eta, NPion22_Eta;
-    Double_t NPion21_Phi, NPion22_Phi;
-    Double_t NPion21_Mass, NPion22_Mass;
-    Double_t NPions1_Pt, NPions2_Pt;
-    Double_t NPions1_Eta, NPions2_Eta;
-    Double_t NPions1_Phi, NPions2_Phi;
-    Double_t NPions1_Mass, NPions2_Mass;
+    Double_t NPion1_Pt  , NPion2_Pt  ;
+    Double_t NPion1_Eta , NPion2_Eta ;
+    Double_t NPion1_Phi , NPion2_Phi ;
+    Double_t NPion1_Mass, NPion2_Mass;
 
-    //Jets from Z
-    Double_t ZJet1_Pt, ZJet2_Pt;
-    Double_t ZJet1_Eta, ZJet2_Eta;
-    Double_t ZJet1_Phi, ZJet2_Phi;
-    Double_t ZJet1_Mass, ZJet2_Mass;
+    //Pion jets
+    Double_t JetTau1_Pt  , JetTau2_Pt  ;
+    Double_t JetTau1_Eta , JetTau2_Eta ;
+    Double_t JetTau1_Phi , JetTau2_Phi ;
+    Double_t JetTau1_Mass, JetTau2_Mass;
 
-    //Electrons/Muons from Z
-    Double_t ZLepton1_Pt, ZLepton2_Pt;
-    Double_t ZLepton1_Eta, ZLepton2_Eta;
-    Double_t ZLepton1_Phi, ZLepton2_Phi;
-    Double_t ZLepton1_Mass, ZLepton2_Mass;
+    //Remaining tracks and photons
+    Double_t TracksTau1_Pt  , TracksTau2_Pt  ;
+    Double_t TracksTau1_Eta , TracksTau2_Eta ;
+    Double_t TracksTau1_Phi , TracksTau2_Phi ;
+    Double_t TracksTau1_Mass, TracksTau2_Mass;
+    Double_t PhotonsTau1_Pt  , PhotonsTau2_Pt  ;
+    Double_t PhotonsTau1_Eta , PhotonsTau2_Eta ;
+    Double_t PhotonsTau1_Phi , PhotonsTau2_Phi ;
+    Double_t PhotonsTau1_Mass, PhotonsTau2_Mass;
 
-    //Reco Z
+    //Jets/leptons from Z
+    Double_t ZParticle1_Pt  , ZParticle2_Pt  ;
+    Double_t ZParticle1_Eta , ZParticle2_Eta ;
+    Double_t ZParticle1_Phi , ZParticle2_Phi ;
+    Double_t ZParticle1_Mass, ZParticle2_Mass;
+
+    //Reconstructed Z from all other particles
     Double_t ZReco_Pt, ZReco_Eta, ZReco_Phi, ZReco_Mass;
 
-    const TString inputFileTemp = "/afs/cern.ch/work/a/ariostas/public/CP-Higgs_Samples_small/" + inputfile + ".root";
+    const TString inputFileTemp = "/afs/cern.ch/work/a/ariostas/public/CP-Higgs_Samples_smallAlt/" + inputfile + ".root";
     inputfile = "Reading " + inputfile + " events... ";
     inputfile.Resize(60);
     cout << inputfile << endl;
@@ -192,11 +190,8 @@ void analyze(TString inputfile, Double_t xsec, Int_t samp){
     intree->SetBranchAddress("NJets",           &NJets);
     intree->SetBranchAddress("NTauJets",        &NTauJets);
     intree->SetBranchAddress("hasH",            &hasH);
-    intree->SetBranchAddress("sameCharge",      &sameCharge);
-    intree->SetBranchAddress("NCPions1",        &NCPions1);
-    intree->SetBranchAddress("NCPions2",        &NCPions2);
-    intree->SetBranchAddress("NNPions1",        &NNPions1);
-    intree->SetBranchAddress("NNPions2",        &NNPions2);
+    intree->SetBranchAddress("ZFromLep",        &ZFromLep);
+    intree->SetBranchAddress("oppositeTrackCharge",&oppositeTrackCharge);
     intree->SetBranchAddress("CPion1_Pt",       &CPion1_Pt);
     intree->SetBranchAddress("CPion1_Eta",      &CPion1_Eta);
     intree->SetBranchAddress("CPion1_Phi",      &CPion1_Phi);
@@ -205,118 +200,108 @@ void analyze(TString inputfile, Double_t xsec, Int_t samp){
     intree->SetBranchAddress("CPion2_Eta",      &CPion2_Eta);
     intree->SetBranchAddress("CPion2_Phi",      &CPion2_Phi);
     intree->SetBranchAddress("CPion2_Mass",     &CPion2_Mass);
-    intree->SetBranchAddress("CPions1_Pt",      &CPions1_Pt);
-    intree->SetBranchAddress("CPions1_Eta",     &CPions1_Eta);
-    intree->SetBranchAddress("CPions1_Phi",     &CPions1_Phi);
-    intree->SetBranchAddress("CPions1_Mass",    &CPions1_Mass);
-    intree->SetBranchAddress("CPions2_Pt",      &CPions2_Pt);
-    intree->SetBranchAddress("CPions2_Eta",     &CPions2_Eta);
-    intree->SetBranchAddress("CPions2_Phi",     &CPions2_Phi);
-    intree->SetBranchAddress("CPions2_Mass",    &CPions2_Mass);
-    intree->SetBranchAddress("NPion11_Pt",      &NPion11_Pt);
-    intree->SetBranchAddress("NPion11_Eta",     &NPion11_Eta);
-    intree->SetBranchAddress("NPion11_Phi",     &NPion11_Phi);
-    intree->SetBranchAddress("NPion11_Mass",    &NPion11_Mass);
-    intree->SetBranchAddress("NPion12_Pt",      &NPion12_Pt);
-    intree->SetBranchAddress("NPion12_Eta",     &NPion12_Eta);
-    intree->SetBranchAddress("NPion12_Phi",     &NPion12_Phi);
-    intree->SetBranchAddress("NPion12_Mass",    &NPion12_Mass);
-    intree->SetBranchAddress("NPion21_Pt",      &NPion21_Pt);
-    intree->SetBranchAddress("NPion21_Eta",     &NPion21_Eta);
-    intree->SetBranchAddress("NPion21_Phi",     &NPion21_Phi);
-    intree->SetBranchAddress("NPion21_Mass",    &NPion21_Mass);
-    intree->SetBranchAddress("NPion22_Pt",      &NPion22_Pt);
-    intree->SetBranchAddress("NPion22_Eta",     &NPion22_Eta);
-    intree->SetBranchAddress("NPion22_Phi",     &NPion22_Phi);
-    intree->SetBranchAddress("NPion22_Mass",    &NPion22_Mass);
-    intree->SetBranchAddress("NPions1_Pt",      &NPions1_Pt);
-    intree->SetBranchAddress("NPions1_Eta",     &NPions1_Eta);
-    intree->SetBranchAddress("NPions1_Phi",     &NPions1_Phi);
-    intree->SetBranchAddress("NPions1_Mass",    &NPions1_Mass);
-    intree->SetBranchAddress("NPions2_Pt",      &NPions2_Pt);
-    intree->SetBranchAddress("NPions2_Eta",     &NPions2_Eta);
-    intree->SetBranchAddress("NPions2_Phi",     &NPions2_Phi);
-    intree->SetBranchAddress("NPions2_Mass",    &NPions2_Mass);
-    intree->SetBranchAddress("ZJet1_Pt",        &ZJet1_Pt);
-    intree->SetBranchAddress("ZJet1_Eta",       &ZJet1_Eta);
-    intree->SetBranchAddress("ZJet1_Phi",       &ZJet1_Phi);
-    intree->SetBranchAddress("ZJet1_Mass",      &ZJet1_Mass);
-    intree->SetBranchAddress("ZJet2_Pt",        &ZJet2_Pt);
-    intree->SetBranchAddress("ZJet2_Eta",       &ZJet2_Eta);
-    intree->SetBranchAddress("ZJet2_Phi",       &ZJet2_Phi);
-    intree->SetBranchAddress("ZJet2_Mass",      &ZJet2_Mass);
-    intree->SetBranchAddress("ZLepton1_Pt",     &ZLepton1_Pt);
-    intree->SetBranchAddress("ZLepton1_Eta",    &ZLepton1_Eta);
-    intree->SetBranchAddress("ZLepton1_Phi",    &ZLepton1_Phi);
-    intree->SetBranchAddress("ZLepton1_Mass",   &ZLepton1_Mass);
-    intree->SetBranchAddress("ZLepton2_Pt",     &ZLepton2_Pt);
-    intree->SetBranchAddress("ZLepton2_Eta",    &ZLepton2_Eta);
-    intree->SetBranchAddress("ZLepton2_Phi",    &ZLepton2_Phi);
-    intree->SetBranchAddress("ZLepton2_Mass",   &ZLepton2_Mass);
+    intree->SetBranchAddress("NPion1_Pt",       &NPion1_Pt);
+    intree->SetBranchAddress("NPion1_Eta",      &NPion1_Eta);
+    intree->SetBranchAddress("NPion1_Phi",      &NPion1_Phi);
+    intree->SetBranchAddress("NPion1_Mass",     &NPion1_Mass);
+    intree->SetBranchAddress("NPion2_Pt",       &NPion2_Pt);
+    intree->SetBranchAddress("NPion2_Eta",      &NPion2_Eta);
+    intree->SetBranchAddress("NPion2_Phi",      &NPion2_Phi);
+    intree->SetBranchAddress("NPion2_Mass",     &NPion2_Mass);
+    intree->SetBranchAddress("JetTau1_Pt",      &JetTau1_Pt);
+    intree->SetBranchAddress("JetTau1_Eta",     &JetTau1_Eta);
+    intree->SetBranchAddress("JetTau1_Phi",     &JetTau1_Phi);
+    intree->SetBranchAddress("JetTau1_Mass",    &JetTau1_Mass);
+    intree->SetBranchAddress("JetTau2_Pt",      &JetTau2_Pt);
+    intree->SetBranchAddress("JetTau2_Eta",     &JetTau2_Eta);
+    intree->SetBranchAddress("JetTau2_Phi",     &JetTau2_Phi);
+    intree->SetBranchAddress("JetTau2_Mass",    &JetTau2_Mass);
+    intree->SetBranchAddress("TracksTau1_Pt",   &TracksTau1_Pt);
+    intree->SetBranchAddress("TracksTau1_Eta",  &TracksTau1_Eta);
+    intree->SetBranchAddress("TracksTau1_Phi",  &TracksTau1_Phi);
+    intree->SetBranchAddress("TracksTau1_Mass", &TracksTau1_Mass);
+    intree->SetBranchAddress("TracksTau2_Pt",   &TracksTau2_Pt);
+    intree->SetBranchAddress("TracksTau2_Eta",  &TracksTau2_Eta);
+    intree->SetBranchAddress("TracksTau2_Phi",  &TracksTau2_Phi);
+    intree->SetBranchAddress("TracksTau2_Mass", &TracksTau2_Mass);
+    intree->SetBranchAddress("PhotonsTau1_Pt",  &PhotonsTau1_Pt);
+    intree->SetBranchAddress("PhotonsTau1_Eta", &PhotonsTau1_Eta);
+    intree->SetBranchAddress("PhotonsTau1_Phi", &PhotonsTau1_Phi);
+    intree->SetBranchAddress("PhotonsTau1_Mass",&PhotonsTau1_Mass);
+    intree->SetBranchAddress("PhotonsTau2_Pt",  &PhotonsTau2_Pt);
+    intree->SetBranchAddress("PhotonsTau2_Eta", &PhotonsTau2_Eta);
+    intree->SetBranchAddress("PhotonsTau2_Phi", &PhotonsTau2_Phi);
+    intree->SetBranchAddress("PhotonsTau2_Mass",&PhotonsTau2_Mass);
+    intree->SetBranchAddress("ZParticle1_Pt",   &ZParticle1_Pt);
+    intree->SetBranchAddress("ZParticle1_Eta",  &ZParticle1_Eta);
+    intree->SetBranchAddress("ZParticle1_Phi",  &ZParticle1_Phi);
+    intree->SetBranchAddress("ZParticle1_Mass", &ZParticle1_Mass);
+    intree->SetBranchAddress("ZParticle2_Pt",   &ZParticle2_Pt);
+    intree->SetBranchAddress("ZParticle2_Eta",  &ZParticle2_Eta);
+    intree->SetBranchAddress("ZParticle2_Phi",  &ZParticle2_Phi);
+    intree->SetBranchAddress("ZParticle2_Mass", &ZParticle2_Mass);
     intree->SetBranchAddress("ZReco_Pt",        &ZReco_Pt);
     intree->SetBranchAddress("ZReco_Eta",       &ZReco_Eta);
     intree->SetBranchAddress("ZReco_Phi",       &ZReco_Phi);
     intree->SetBranchAddress("ZReco_Mass",      &ZReco_Mass);
 
     Double_t tempSelection=0, tempSelectionError=0, tempMassCuts=0, tempMassCutsError=0, tempKinematicCuts=0, tempKinematicCutsErrors=0;
-    Double_t tempCP1=0, tempCP2=0;
 
     for (Int_t iEntry=0; iEntry<numberOfEntries; iEntry++) { // entry loop
         intree->GetEntry(iEntry);
 
-        if(iEntry%5000 == 0) cout << iEntry << endl;
-
         if(hasH == 1 && signalFlags.at(samp) > 0) continue;
 
-        if(NCPions1 != 1 || NCPions2 != 1) continue;
-        if(NNPions1 != 1 || NNPions2 != 1) continue;
-        if(NNPions1 < 1 || NNPions2 < 1) continue;
-
-        TLorentzVector V4Z, V4H, V4CPion1, V4CPion2, V4NPion11, V4NPion12, V4NPion21, V4NPion22, V4NPion1, V4NPion2, V4Init;
+        TLorentzVector V4Z, V4H, V4CPion1, V4CPion2, V4NPion1, V4NPion2, V4Init, V4Z1, V4Z2;
+        TLorentzVector V4Tracks1, V4Tracks2, V4Photons1, V4Photons2;
 
         V4Init.SetPxPyPzE(0, 0, 0, 240);
 
         V4CPion1.SetPtEtaPhiM(CPion1_Pt, CPion1_Eta, CPion1_Phi, CPion1_Mass);
         V4CPion2.SetPtEtaPhiM(CPion2_Pt, CPion2_Eta, CPion2_Phi, CPion2_Mass);
+        V4NPion1.SetPtEtaPhiM(NPion1_Pt, NPion1_Eta, NPion1_Phi, NPion1_Mass);
+        V4NPion2.SetPtEtaPhiM(NPion2_Pt, NPion2_Eta, NPion2_Phi, NPion2_Mass);
 
-        V4NPion11.SetPtEtaPhiM(NPion11_Pt, NPion11_Eta, NPion11_Phi, NPion11_Mass);
-        V4NPion12.SetPtEtaPhiM(NPion12_Pt, NPion12_Eta, NPion12_Phi, NPion12_Mass);
-        V4NPion21.SetPtEtaPhiM(NPion21_Pt, NPion21_Eta, NPion21_Phi, NPion21_Mass);
-        V4NPion22.SetPtEtaPhiM(NPion22_Pt, NPion22_Eta, NPion22_Phi, NPion22_Mass);
+        V4Tracks1.SetPtEtaPhiM(TracksTau1_Pt, TracksTau1_Eta, TracksTau1_Phi, TracksTau1_Mass);
+        V4Tracks2.SetPtEtaPhiM(TracksTau2_Pt, TracksTau2_Eta, TracksTau2_Phi, TracksTau2_Mass);
 
-        V4NPion1 = V4NPion11 + V4NPion12;
-        V4NPion2 = V4NPion21 + V4NPion22;
+        V4Photons1.SetPtEtaPhiM(PhotonsTau1_Pt, PhotonsTau1_Eta, PhotonsTau1_Phi, PhotonsTau1_Mass);
+        V4Photons2.SetPtEtaPhiM(PhotonsTau2_Pt, PhotonsTau2_Eta, PhotonsTau2_Phi, PhotonsTau2_Mass);
 
-        //if(NNPions1 != 1) V4NPion1.SetPtEtaPhiM(NPions1_Pt, NPions1_Eta, NPions1_Phi, NPions1_Mass);
-        //if(NNPions2 != 1) V4NPion2.SetPtEtaPhiM(NPions2_Pt, NPions2_Eta, NPions2_Phi, NPions2_Mass);
+        V4Z1.SetPtEtaPhiM(ZParticle1_Pt, ZParticle1_Eta, ZParticle1_Phi, ZParticle1_Mass);
+        V4Z2.SetPtEtaPhiM(ZParticle2_Pt, ZParticle2_Eta, ZParticle2_Phi, ZParticle2_Mass);
 
-        Int_t ZFromLep;
-        if(ZLepton1_Pt != 0. && ZLepton2_Pt != 0.){
-            TLorentzVector V4Temp1, V4Temp2;
-            V4Temp1.SetPtEtaPhiM(ZLepton1_Pt, ZLepton1_Eta, ZLepton1_Phi, ZLepton1_Mass);
-            V4Temp2.SetPtEtaPhiM(ZLepton2_Pt, ZLepton2_Eta, ZLepton2_Phi, ZLepton2_Mass);
-            V4Z = V4Temp1 + V4Temp2;
-            ZFromLep = 1;
+        V4Z = V4Z1 + V4Z2;
+
+        if(samp == 0){
+            // histotest->Fill(V4CPion1.P());
+            // histotest->Fill(V4CPion2.P());
+
+            // histotest->Fill(V4NPion1.P());
+            // histotest->Fill(V4NPion2.P());
+
+            // histotest->Fill((V4NPion1+V4CPion1).P());
+            // histotest->Fill((V4NPion2+V4CPion2).P());
+
+            // histotest->Fill(V4Tracks1.P());
+            // histotest->Fill(V4Tracks2.P());
+
+            histotest->Fill(V4Photons1.P());
+            histotest->Fill(V4Photons2.P());
         }
-        // else if(ZReco_Pt > .1 && ZReco_Mass > 0.1){
-        //     V4Z.SetPtEtaPhiM(ZReco_Pt, ZReco_Eta, ZReco_Phi, ZReco_Mass);
-        //     ZFromLep = -1;
-        // }
-        // else if(ZJet1_Pt != 0. && ZJet2_Pt != 0.){
-        //    TLorentzVector V4Temp1, V4Temp2;
-        //     V4Temp1.SetPtEtaPhiM(ZJet1_Pt, ZJet1_Eta, ZJet1_Phi, ZJet1_Mass);
-        //     V4Temp2.SetPtEtaPhiM(ZJet2_Pt, ZJet2_Eta, ZJet2_Phi, ZJet2_Mass);
-        //     V4Z = V4Temp1 + V4Temp2;
-        //     ZFromLep = 0;
-        // }
-        else{
-            continue;
-        }
+
+        if(oppositeTrackCharge != 1) continue;
+        if(ZFromLep <= 0) continue;
+        // if(V)
 
         tempSelection += eventWeight;
         tempSelectionError++;
 
         V4H = V4Init - V4Z;
+
+        // if((fabs(V4Z.M() - 91.2) > 25) || (fabs(V4H.M() - 125) > 25)){
+        //     V4Z.SetPtEtaPhiM(ZReco_Pt, ZReco_Eta, ZReco_Phi, ZReco_Mass);
+        // }
 
         if(fabs(V4Z.M() - 91.2) > 5.) continue;
 
@@ -336,30 +321,12 @@ void analyze(TString inputfile, Double_t xsec, Int_t samp){
         V4Tau2Sol1 = V4Rho2 + V4Neutrino2Sol1;
         V4Tau2Sol2 = V4Rho2 + V4Neutrino2Sol2;
 
-        if(V4Neutrino1Sol1.M() < -5 || V4Neutrino2Sol1.M() < -5 || V4Neutrino1Sol2.M() < -5 || V4Neutrino2Sol2.M() < -5) continue;
-
         tempMassCuts += eventWeight;
         tempMassCutsError++;
 
-        TLorentzVector V4Temp1, V4Temp2;
-        V4Temp1.SetPtEtaPhiM(ZLepton1_Pt, ZLepton1_Eta, ZLepton1_Phi, ZLepton1_Mass);
-        V4Temp2.SetPtEtaPhiM(ZLepton2_Pt, ZLepton2_Eta, ZLepton2_Phi, ZLepton2_Mass);
-
-        if(ZFromLep == 1){
-            if(sameCharge != 0 || NLeptons != 2) continue;
-            if(deltaR(V4CPion1, V4Temp1) < 0.4 || deltaR(V4CPion1, V4Temp2) < 0.4 || deltaR(V4CPion2, V4Temp1) < 0.4 || deltaR(V4CPion2, V4Temp2) < 0.4) continue;
-            if(fabs(V4Z.P()-51.6) > 2.) continue;
-        }
-        else if(ZFromLep == -1){
-            //if(fabs(V4Z.P()-51.6) > 3.) continue;
-            if(NLeptons != 0) continue;
-            //if(NJets < 2) continue;
-            if(fabs(V4Z.P()-51.6) > 3. || V4Z.Pt() < 10) continue;
-            if(V4Tau1Sol1.M() < 0 || V4Tau2Sol1.M() < 0 || V4Tau1Sol2.M() < 0 || V4Tau2Sol2.M() < 0) continue;
-        }
-
-        //if(V4Tau1Sol1.Pt() < 20 || V4Tau2Sol1.Pt() < 20 || V4Tau1Sol2.Pt() < 20 || V4Tau2Sol2.Pt() < 20) continue;
-        //if(V4Tau1Sol1.Pt() > 90 || V4Tau2Sol1.Pt() > 90 || V4Tau1Sol2.Pt() > 90 || V4Tau2Sol2.Pt() > 90) continue;
+        // if(V4Neutrino1Sol1.M() < -5 || V4Neutrino2Sol1.M() < -5 || V4Neutrino1Sol2.M() < -5 || V4Neutrino2Sol2.M() < -5) continue;
+        // if(V4Tau1Sol1.Pt() < 20 || V4Tau2Sol1.Pt() < 20 || V4Tau1Sol2.Pt() < 20 || V4Tau2Sol2.Pt() < 20) continue;
+        // if(V4Tau1Sol1.Pt() > 90 || V4Tau2Sol1.Pt() > 90 || V4Tau1Sol2.Pt() > 90 || V4Tau2Sol2.Pt() > 90) continue;
 
         // Compute theta variable
         Double_t thetaSol1, thetaSol2;
@@ -368,19 +335,14 @@ void analyze(TString inputfile, Double_t xsec, Int_t samp){
 
         hTheta.at(samp)->Fill(thetaSol1, eventWeight/2.);
         hTheta.at(samp)->Fill(thetaSol2, eventWeight/2.);
+        // hTheta.at(samp)->Fill(thetaSol1);
+        // hTheta.at(samp)->Fill(thetaSol2);
 
         vector<double> vars1, vars2;
         vars1.push_back(thetaSol1);
         vars1.push_back(thetaSol2);
 
-        if(V4CPion1.Pt() > V4CPion2.Pt()){
-            finalEvents1.push_back(vars1);
-            tempCP1+=eventWeight;
-        }
-        else{
-            finalEvents2.push_back(vars1);
-            tempCP2+=eventWeight;
-        }
+        finalEvents.push_back(vars1);
 
         tempKinematicCuts += eventWeight;
         tempKinematicCutsErrors++;
@@ -388,28 +350,16 @@ void analyze(TString inputfile, Double_t xsec, Int_t samp){
     } // end event loop
 
     for(Int_t i = 0; i < nDatasets; i++){
-        for(Int_t x = 0; x < Nint(tempCP1); x++){
-            Int_t randEntry = Nint(random->Uniform(finalEvents1.size()-1));
+        for(Int_t x = 0; x < Nint(tempMassCuts); x++){
+            Int_t randEntry = Nint(random->Uniform(finalEvents.size()-1));
 
             if(signalFlags.at(samp)>0){
-                for(Int_t d = 0; d<datasets.size(); d+=2){
-                    datasets.at(d).at(i).add(finalEvents1.at(randEntry));
+                for(Int_t d = 0; d<datasets.size(); d++){
+                    datasets.at(d).at(i).add(finalEvents.at(randEntry));
                 }
             }
             else{
-                datasets.at(2*samp).at(i).add(finalEvents1.at(randEntry));
-            }
-        }
-        for(Int_t x = 0; x < Nint(tempCP2); x++){
-            Int_t randEntry = Nint(random->Uniform(finalEvents2.size()-1));
-
-            if(signalFlags.at(samp)>0){
-                for(Int_t d = 1; d<datasets.size(); d+=2){
-                    datasets.at(d).at(i).add(finalEvents2.at(randEntry));
-                }
-            }
-            else{
-                datasets.at(2*samp+1).at(i).add(finalEvents2.at(randEntry));
+                datasets.at(samp).at(i).add(finalEvents.at(randEntry));
             }
         }
     }
@@ -433,6 +383,8 @@ void saveResults(TString calcP, TString calcChi, TString calcL)
 {
     cout << endl << endl;
 
+    calcAccuracy(hTheta);
+
     for(Int_t x = 0; x<signalFlags.size(); x++){
         if(signalFlags.at(x) <= 0){
             TH1D *tempHisto = new TH1D("obs_" + sampleNames.at(x), "obs_" + sampleNames.at(x), 20, -3.1416, 3.1416);
@@ -448,9 +400,9 @@ void saveResults(TString calcP, TString calcChi, TString calcL)
 
     vector<TH1D*> hp, hTemp, hlike, hchi;
     vector<TString> hpNames;
-    hpNames.push_back("Delta=0"); hpNames.push_back("Delta=#pi/12"); hpNames.push_back("Delta=#pi/6"); hpNames.push_back("Delta=#pi/4");
-    hpNames.push_back("Delta=#pi/3"); hpNames.push_back("Delta=5#pi/12"); hpNames.push_back("Delta=#pi/2"); hpNames.push_back("Delta=7#pi/12");
-    hpNames.push_back("Delta=2#pi/3"); hpNames.push_back("Delta=3#pi/4"); hpNames.push_back("Delta=5#pi/6"); hpNames.push_back("Delta=11#pi/12");
+    hpNames.push_back("Delta=0 and Delta=0"); hpNames.push_back("Delta=0 and Delta=#pi/12"); hpNames.push_back("Delta=0 and Delta=#pi/6"); hpNames.push_back("Delta=0 and Delta=#pi/4");
+    hpNames.push_back("Delta=0 and Delta=#pi/3"); hpNames.push_back("Delta=0 and Delta=5#pi/12"); hpNames.push_back("Delta=0 and Delta=#pi/2"); hpNames.push_back("Delta=0 and Delta=7#pi/12");
+    hpNames.push_back("Delta=0 and Delta=2#pi/3"); hpNames.push_back("Delta=0 and Delta=3#pi/4"); hpNames.push_back("Delta=0 and Delta=5#pi/6"); hpNames.push_back("Delta=0 and Delta=11#pi/12");
 
     if(calcP == "true"){
 
@@ -458,24 +410,26 @@ void saveResults(TString calcP, TString calcChi, TString calcL)
 
         TRandom3 *randGen = new TRandom3();
         randGen->SetSeed(0);
-        for(Int_t i=0; i<datasets.size(); i+=2){
+        for(Int_t i=0; i<datasets.size(); i++){
             Double_t averageT=0, averageP=0, averagePError=0;
-            TH1D *tempHisto = new TH1D(hpNames.at(i/2), hpNames.at(i/2), 10, -0.0005, 1.0005);
+            TH1D *tempHisto = new TH1D(hpNames.at(i), hpNames.at(i), 10, -0.0005, 1.0005);
 
-            for(Int_t x = 0; x < nDatasets; x++){
+            for(Int_t x =0; x < nDatasets; x++){
 
                 if(x!=0) cout << "\e[A" << "\e[A";
                 cout << "[" << string((x+1)/(nDatasets/50),'#') << string(50-(x+1)/(nDatasets/50),' ') << "]  " << 100*(x+1)/nDatasets;
                 cout << "\% completed.   Dataset " << x+1 << " of " << nDatasets << "  " << endl;
 
                 Double_t tval;
-                tval = calcT(datasets.at(i).at(x),datasets.at(i+1).at(x));
+                if(i == 0) tval = calcT(datasets.at(0).at(x),datasets.at(i).at( (x+1==nDatasets?0:x+1) ));
+                else tval = calcT(datasets.at(0).at(x),datasets.at(i).at(x));
 
                 Double_t ptval;
                 Int_t pval=0;
-                Int_t nperm=200;
+                Int_t nperm=100;
                 for(Int_t p=0; p<nperm; p++){
-                    ptval = permCalcT(datasets.at(i).at(x),datasets.at(i+1).at(x), randGen);
+                    if(i == 0) ptval = permCalcT(datasets.at(0).at(x),datasets.at(i).at( (x+1==nDatasets?0:x+1) ), randGen);
+                    else ptval = permCalcT(datasets.at(0).at(x),datasets.at(i).at(x), randGen);
                     if(ptval > tval) pval++;
                     if(p!=0) cout << "\e[A";
                     cout << "[" << string((p+1)/(nperm/50),'#') << string(50-(p+1)/(nperm/50),' ') << "]  " << 100*(p+1)/nperm << "\% completed.   Permutation " << p+1 << " of " << nperm;
@@ -494,8 +448,8 @@ void saveResults(TString calcP, TString calcChi, TString calcL)
             averageP/=Double_t(nDatasets);
             averagePError/=Double_t(nDatasets);
 
-            cout << "Average T of " << hpNames.at(i/2) << ": " << averageT << endl;
-            cout << "Average p of " << hpNames.at(i/2) << ": " << averageP  << " +- " << averagePError << endl << endl << endl;
+            cout << "Average T of " << hpNames.at(i) << ": " << averageT << endl;
+            cout << "Average p of " << hpNames.at(i) << ": " << averageP  << " +- " << averagePError << endl << endl << endl;
 
         }
 
@@ -568,7 +522,7 @@ void saveResults(TString calcP, TString calcChi, TString calcL)
 
         }
 
-        for(Int_t i=0; i<hThetaObs.size(); i++){
+        for(Int_t i=0; i<datasets.size(); i++){
             Double_t Likelihood=1.;
 
             for(Int_t x = 1; x <= 20; x++){
@@ -592,35 +546,33 @@ void saveResults(TString calcP, TString calcChi, TString calcL)
     gStyle->SetOptStat(kFALSE);
 
     vector<TString> histogramNames;
-    histogramNames.push_back("Zh (#Delta=0)"); histogramNames.push_back("Zh (#Delta=#pi/4)"); histogramNames.push_back("Zh (#Delta=#pi/2)"); histogramNames.push_back("Zh (#Delta=3#pi/4)");
+    histogramNames.push_back("#Delta=0"); histogramNames.push_back("#Delta=#pi/4"); histogramNames.push_back("#Delta=#pi/2"); histogramNames.push_back("#Delta=3#pi/4");
     vector<TH1D*> hThetaTemp;
     hThetaTemp.push_back(hTheta.at(0)); hThetaTemp.push_back(hTheta.at(3)); hThetaTemp.push_back(hTheta.at(6)); hThetaTemp.push_back(hTheta.at(9));
 
     histogram(hThetaTemp, histogramNames, c1, "#Theta variable", "Normalized yield", "Theta");
-    // histogram(hTheta.at(0), "Zh (#Delta=0)", c1, "#Theta variable", "Normalized yield", "Theta");
-
 
     if(calcP == "true" && calcChi == "true"){
-        for(Int_t i=0; i<hp.size(); i++){
+        for(Int_t i=0; i<datasets.size(); i++){
             TString filename="pc_"; filename+=i;
             histogram(hp.at(i), hchi.at(i), hpNames.at(i), c1, "p values", "Number of Toys", filename);
         }
     }
     else if(calcP == "true"){
-        for(Int_t i=0; i<hp.size(); i++){
+        for(Int_t i=0; i<datasets.size(); i++){
             TString filename="p_"; filename+=i;
             histogram(hp.at(i), hpNames.at(i), c1, "p distribution (Mike)", "Fraction", filename);
         }
     }
     else if(calcChi == "true"){
-        for(Int_t i=0; i<hchi.size(); i++){
+        for(Int_t i=0; i<datasets.size(); i++){
             TString filename="c_"; filename+=i;
             histogram(hchi.at(i), hpNames.at(i), c1, "p distribution (Chi squared)", "Fraction", filename);
         }
     }
 
     if(calcL == "true"){
-        for(Int_t i=0; i<hpNames.size(); i++){
+        for(Int_t i=0; i<datasets.size(); i++){
             TString filename="l_"; filename+=i;
             histogram(hlike.at(i), hpNames.at(i), c1, "Likelihood values", "Number of Toys", filename);
         }
@@ -653,6 +605,9 @@ void saveResults(TString calcP, TString calcChi, TString calcL)
         
     }
 
+    histotest->Draw();
+    c1->SaveAs("testHist.png");
+
     cout << "Done\nExiting...\n\n\n";
 
 }
@@ -674,8 +629,10 @@ Double_t getLikelihood(TH1D *histo1, TH1D *histo2){
 
     for(Int_t x = 1; x <= 20; x++){
 
-        Likelihood*=Poisson(Nint(histo1->GetBinContent(x)), Nint(histo2->GetBinContent(x)));
-        Likelihood/=Poisson(Nint(histo1->GetBinContent(x)), Nint(histo1->GetBinContent(x)));
+        // Likelihood*=Poisson(Nint(histo1->GetBinContent(x)), Nint(histo2->GetBinContent(x)));
+        // Likelihood/=Poisson(Nint(histo1->GetBinContent(x)), Nint(histo1->GetBinContent(x)));
+        Likelihood*=Poisson(histo1->GetBinContent(x), histo2->GetBinContent(x));
+        Likelihood/=Poisson(histo1->GetBinContent(x), histo1->GetBinContent(x));
     }
 
     return Likelihood;
@@ -776,10 +733,17 @@ void histogram(vector<TH1D*> histos, vector<TString> histNames, TCanvas *can, co
 
     Double_t max=0, min=1;
 
+    TF1 *f = new TF1("sine", "[0]+[1]*TMath::Sin(x-[2])");
+    f->SetParameter(0, 0.5);
+    f->SetParameter(1, 0.2);
+    f->SetParameter(2, 0);
+
     for(Int_t i=0; i<histos.size(); i++){
         Double_t integral = histos.at(i)->Integral();
         if(integral != 0.){
+            histos.at(i)->Sumw2();
             histos.at(i)->Scale(Double_t(1)/integral);
+            histos.at(i)->Fit(f, "ME");
             if(histos.at(i)->GetMaximum()>max) max=histos.at(i)->GetMaximum();
             if(histos.at(i)->GetMinimum()<min) min=histos.at(i)->GetMinimum();
         }
@@ -801,9 +765,9 @@ void histogram(vector<TH1D*> histos, vector<TString> histNames, TCanvas *can, co
         histos.at(i)->SetLineColor(colors.at(i%6));
         histos.at(i)->SetLineStyle(lines.at(i%5));
         if(i==0){
-            histos.at(i)->Draw("][");
+            histos.at(i)->Draw("][ hist");
         }
-        else histos.at(i)->Draw("same ][");
+        else histos.at(i)->Draw("same ][ hist");
         
     }
 
@@ -852,9 +816,11 @@ void histogramS(vector<TH1D*> histos, vector<TString> histNames, TCanvas *can, c
     max0=histos.at(0)->GetMaximum();
     min0=histos.at(0)->GetMinimum();
 
+    
+
     for(Int_t i=1; i<histos.size(); i++){
         Double_t max=max0, min=min0;
-        //histos.at(i)->Scale(Double_t(1)/histos.at(i)->Integral());
+        histos.at(i)->Scale(Double_t(1)/histos.at(i)->Integral());
         if(histos.at(i)->GetMaximum()>max0) max=histos.at(i)->GetMaximum();
         if(histos.at(i)->GetMinimum()<min0) min=histos.at(i)->GetMinimum();
 
@@ -956,5 +922,73 @@ Double_t getTheta(TLorentzVector vcpion1, TLorentzVector vnpion1, TLorentzVector
 
         // Compute theta variable
         return TMath::Sign(Double_t(1),v3tau1.Dot(vE2.Cross(vE1)))*TMath::ACos(vE1.Dot(vE2)/(vE1.Mag()*vE2.Mag()));
+
+ }
+
+ void calcAccuracy(vector<TH1D*> histos){
+
+    if(histos.size() != 12){
+        cout << "Error, only input signal histograms" << endl;
+        return;
+    }
+
+    Double_t averageAmp = 0, averageNorm = 0;
+
+    TF1 *f = new TF1("sine", "[0]-[1]*TMath::Cos(x-[2])");
+    f->SetParameter(0, 50);
+    f->SetParameter(1, 20);
+    f->SetParameter(2, 0);
+
+    for(Int_t x = 0; x < 12; x++){
+        histos.at(x)->Scale(990./Double_t(histos.at(x)->Integral()));
+        histos.at(x)->Fit(f, "ME0");
+        averageAmp += f->GetParameter(1);
+        averageNorm += f->GetParameter(0);
+    }
+    averageAmp /= 12.;
+    averageNorm /= 12.;
+
+    Double_t nPoints = 50;
+    Double_t pi = Pi();
+    TH1D *SMTheta = new TH1D("SMTheta", "SMTheta", 20, -pi, pi);
+    f->SetParameter(0, averageNorm);
+    f->SetParameter(1, averageAmp);
+    f->SetParameter(2, 0);
+    for(Int_t i = 0; i < 20; i++){
+        SMTheta->Fill(-pi+pi/20.+i*pi/10., f->Eval(-pi+pi/20.+i*pi/10.));
+    }
+
+    TCanvas *c2 = new TCanvas("graph", "graph", 1600, 900);
+
+    Double_t phase[2*Nint(nPoints)+1], logL[2*Nint(nPoints)+1];
+    for(Int_t x = -nPoints; x <= nPoints; x++){
+        TH1D *tempHisto = new TH1D(TString::Format("tempHist_%i", x), TString::Format("tempHist_%i", x), 20, -pi, pi);
+        f->SetParameter(0, averageNorm);
+        f->SetParameter(1, averageAmp);
+        f->SetParameter(2, pi/2./nPoints*x);
+        for(Int_t i = 0; i < 20; i++){
+            tempHisto->Fill(-pi+pi/20.+i*pi/10., f->Eval(-pi+pi/20.+i*pi/10.));
+        }
+        phase[x+Nint(nPoints)] = pi/2./nPoints*x;
+        logL[x+Nint(nPoints)] = -Log(getLikelihood(SMTheta, tempHisto));
+        // tempHisto->Draw();
+        // c2->SaveAs(TString::Format("tempHist_%1i.png", x));
+        tempHisto->Reset("M");
+    }
+
+    TGraph *graph = new TGraph(2*Nint(nPoints)+1, phase, logL);
+    TF1 *f2 = new TF1("poly", "[0]+[1]*x+[2]*x*x+[3]*x*x*x+[4]*x*x*x*x");
+    graph->Fit(f2, "ME");
+
+    
+    graph->GetXaxis()->SetTitle("Phase");
+    graph->GetYaxis()->SetTitle("-Log(L)");
+    graph->SetTitle("");
+    graph->Draw("AC*");
+    c2->SaveAs("LogLikeApprox.png");
+
+    Double_t acc = Abs(f2->GetX(0.5, 0, pi/2));
+
+    cout << "The accuracy of the measurement is " << acc << " radians or " << acc*180./pi << " degrees." << endl;
 
  }
