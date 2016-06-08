@@ -7,17 +7,7 @@ do
 	array=($line)
 	if [ "${array[0]}" != "#" ]; then 
 
-        cd /afs/cern.ch/work/a/ariostas/public/CP-Higgs_Samples/
-        ls ${array[0]}* | grep root > "../CP-Higgs_Samples_small/${array[0]}.txt"
-        cd -
-        cd /afs/cern.ch/work/a/ariostas/public/CP-Higgs_Samples_small/
-        split -l 50 "${array[0]}.txt" ${array[0]}
-        rm "${array[0]}.txt"
-        cd -
-        for file in /afs/cern.ch/work/a/ariostas/public/CP-Higgs_Samples_small/${array[0]}*
-        do
-	        ./run.sh select.C ${array[0]} $file ${array[1]} ${array[2]}
-        done
+	        ./run.sh select.C ${array[0]} ${array[1]} ${array[2]}
 
 	fi
 done < xsec.txt

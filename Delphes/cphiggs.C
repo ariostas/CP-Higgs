@@ -69,7 +69,7 @@ vector<TH1D*> hTheta, hThetaObs;
  * MAIN FUNCTION
  */
 
-void cphiggs(TString calcP = "true", TString calcChi = "true", TString calcL = "true", TString sample = "all", TString inputFile = "xsec.txt"){
+void cphiggs(TString calcP = "false", TString calcChi = "false", TString calcL = "false", TString sample = "all", TString inputFile = "xsec.txt"){
     
     cout << "\n\nStarting process...\n\n";
 
@@ -264,13 +264,11 @@ void analyze(TString inputfile, Double_t xsec, Int_t samp){
     for (Int_t iEntry=0; iEntry<numberOfEntries; iEntry++) { // entry loop
         intree->GetEntry(iEntry);
 
-        if(iEntry%5000 == 0) cout << iEntry << endl;
-
         if(hasH == 1 && signalFlags.at(samp) > 0) continue;
 
-        if(NCPions1 != 1 || NCPions2 != 1) continue;
-        if(NNPions1 != 1 || NNPions2 != 1) continue;
-        if(NNPions1 < 1 || NNPions2 < 1) continue;
+        // if(NCPions1 != 1 || NCPions2 != 1) continue;
+        // if(NNPions1 != 1 || NNPions2 != 1) continue;
+        // if(NNPions1 < 1 || NNPions2 < 1) continue;
 
         TLorentzVector V4Z, V4H, V4CPion1, V4CPion2, V4NPion11, V4NPion12, V4NPion21, V4NPion22, V4NPion1, V4NPion2, V4Init;
 
@@ -301,7 +299,7 @@ void analyze(TString inputfile, Double_t xsec, Int_t samp){
         // else if(ZReco_Pt > .1 && ZReco_Mass > 0.1){
         //     V4Z.SetPtEtaPhiM(ZReco_Pt, ZReco_Eta, ZReco_Phi, ZReco_Mass);
         //     ZFromLep = -1;
-        // }
+        }
         // else if(ZJet1_Pt != 0. && ZJet2_Pt != 0.){
         //    TLorentzVector V4Temp1, V4Temp2;
         //     V4Temp1.SetPtEtaPhiM(ZJet1_Pt, ZJet1_Eta, ZJet1_Phi, ZJet1_Mass);

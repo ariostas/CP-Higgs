@@ -272,6 +272,7 @@ void analyze(TString inputfile, Double_t xsec, Int_t samp){
         V4Z2.SetPtEtaPhiM(ZParticle2_Pt, ZParticle2_Eta, ZParticle2_Phi, ZParticle2_Mass);
 
         V4Z = V4Z1 + V4Z2;
+        // V4Z.SetPtEtaPhiM(ZReco_Pt, ZReco_Eta, ZParticle2_Phi, ZParticle2_Mass);
 
         if(samp == 0){
             // histotest->Fill(V4CPion1.P());
@@ -291,7 +292,7 @@ void analyze(TString inputfile, Double_t xsec, Int_t samp){
         }
 
         if(oppositeTrackCharge != 1) continue;
-        if(ZFromLep <= 0) continue;
+        // if(ZFromLep < 0) continue;
         // if(V)
 
         tempSelection += eventWeight;

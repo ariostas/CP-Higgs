@@ -1,9 +1,8 @@
 
  root_script=$1
       sample=$2
-   conf_file=$3
-   cross_sec=$4
-     eosflag=$5
+   cross_sec=$3
+     eosflag=$4
       
 
 cd /afs/cern.ch/user/a/ariostas/CP-Higgs/Delphes/Selection
@@ -28,14 +27,8 @@ cd   $CMSSW_BASE
 eval `scram runtime -sh`
 cd -
 
-while read line
-do
-  array=($line)
-    if [ "${array[0]}" != "#" ]; then 
-	root -b -l -q "${root_script}+(\"${sample}\", \"${array[0]}\", ${cross_sec}, ${eosflag})"
+	root -b -l -q "${root_script}+(\"${sample}\", ${cross_sec}, ${eosflag})"
 
-    fi
-done < ${conf_file}
 
 rm ${conf_file}
 

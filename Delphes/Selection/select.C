@@ -37,13 +37,14 @@ using namespace std;
 // Declare functions
 Double_t deltaR(TLorentzVector, TLorentzVector);
 
-void select(const TString sample="", const TString tempinput="zh_delphes_0pi12_1.root", const Double_t xsec = 1,
+void select(const TString tempinput="zh_delphes_0pi12_1.root", const Double_t xsec = 1,
     const Int_t eosflag = 1){
 
     // read input input file
     TChain chain("Delphes");
     if(eosflag==0) chain.Add("/afs/cern.ch/work/a/ariostas/public/CP-Higgs_Samples/" + tempinput);
-    if(eosflag==1) chain.Add("/afs/cern.ch/work/a/ariostas/private/CP-Higgs_Samples_temp/" + tempinput);
+    else if(eosflag==1) chain.Add("/afs/cern.ch/work/a/ariostas/private/CP-Higgs_Samples_temp/" + tempinput);
+    else if(eosflag==2) chain.Add("root://eoscms//store/user/arapyan/mc/Delphes/" + tempinput);
     else chain.Add(tempinput);
     ExRootTreeReader *treeReader = new ExRootTreeReader(&chain);
     Long64_t numberOfEntries = treeReader->GetEntries();
@@ -51,7 +52,7 @@ void select(const TString sample="", const TString tempinput="zh_delphes_0pi12_1
     // set up branches to read in from file
     TClonesArray *branchMuon = treeReader->UseBranch("Muon");
     TClonesArray *branchElectron = treeReader->UseBranch("Electron");
-    TClonesArray *branchPhoton = treeReader->UseBranch("Photon");
+    TClonesArray *branchPhoton = treeReader->UseBranch("EFlowPhoton");
     TClonesArray *branchJet = treeReader->UseBranch("Jet");
     TClonesArray *branchParticle = treeReader->UseBranch("Particle");
     TClonesArray *branchChargedHadron = treeReader->UseBranch("Track");
@@ -82,7 +83,7 @@ void select(const TString sample="", const TString tempinput="zh_delphes_0pi12_1
 
     // Output file and trees
     TString output = "/afs/cern.ch/work/a/ariostas/public/CP-Higgs_Samples_small/out_" + tempinput;
-    if(eosflag != 0 && eosflag != 1) output = "/afs/cern.ch/work/a/ariostas/public/CP-Higgs_Samples_small_autogen/out_" + sample + ".root";
+    // if(eosflag != 0 && eosflag != 1) output = "/afs/cern.ch/work/a/ariostas/public/CP-Higgs_Samples_small_autogen/out_" + sample + ".root";
     TFile *outfile = new TFile(output, "RECREATE");
 
     TTree *infoTree = new TTree("Count", "Count");
