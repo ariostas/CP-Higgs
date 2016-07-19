@@ -1,5 +1,5 @@
-ZH_ToZHTauTau-whizard-pythia8_ILD.root                  0.0128
-ZH_ToZHTauTau-whizard-pythia8_ILD_parity_pi_4.root      0.0128
-ZH_ToZHTauTau-whizard-pythia8_ILD_parity_pi_2.root      0.0128
-ZZ_ToZTauTau-whizard-pythia8_ILD.root                   0.085
-ZZ_ZToLL-whizard-pythia8_ILD.root                       0.010
+ZH_ToZHTauTau-whizard-pythia8_ILD.root                  0.01273
+ZH_ToZHTauTau-whizard-pythia8_ILD_parity_pi_4.root      0.01273
+ZH_ToZHTauTau-whizard-pythia8_ILD_parity_pi_2.root      0.01273
+ZZ_ToZTauTau-whizard-pythia8_ILD.root                   0.08434
+ZZ_ZToLL-whizard-pythia8_ILD.root                       0.266

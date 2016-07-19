@@ -23,7 +23,7 @@ void cleanUpMergedFiles(TString sampName = "test") {
 
 	// Event info
     Double_t eventWeight;
-    Int_t NLeptons, NJets, NTauJets, hasH, sameCharge, NCPions1, NCPions2, NNPions1, NNPions2;
+    Int_t NLeptons, NJets, NTauJets, hasH, sameCharge;
 
     // Charged pions
     Double_t CPion1_Pt, CPion2_Pt;
@@ -111,7 +111,7 @@ void cleanUpMergedFiles(TString sampName = "test") {
     intree->SetBranchAddress("ZReco_Mass",      &ZReco_Mass);
 
 	TTree* infotree = (TTree*) infile->Get("Count"); assert(infotree);
-	infotree->SetBranchAddress("numberOfEntries",      &numberOfEntries);
+	infotree->SetBranchAddress("TotalEntries",      &numberOfEntries);
 
 	UInt_t TotalEvents=0;
 	
@@ -120,7 +120,7 @@ void cleanUpMergedFiles(TString sampName = "test") {
 		TotalEvents+=numberOfEntries;
 	}
 
-	TFile *outFile = new TFile("/afs/cern.ch/work/a/ariostas/public/CP-Higgs_Samples_small/" + sampName + ".root", "RECREATE");
+	TFile *outFile = new TFile("/afs/cern.ch/work/a/ariostas/public/CP-Higgs_Samples_small/" + sampName, "RECREATE");
 	
 	// tree to hold the number of events
 	TTree *sampTree = new TTree("Info", "Info");

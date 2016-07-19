@@ -40,6 +40,8 @@ void select(const TString TempInput = "zh_delphes_0pi12_1.root", const Double_t 
     TClonesArray *branchJet = treeReader->UseBranch("Jet");
     TClonesArray *branchParticle = treeReader->UseBranch("Particle");
     TClonesArray *branchChargedHadron = treeReader->UseBranch("Track");
+    TClonesArray *branchEFlowTrack = treeReader->UseBranch("EFlowTrack");
+    TClonesArray *branchEFlowNeutralHadron = treeReader->UseBranch("EFlowNeutralHadron");
     TClonesArray *branchNeutralHadron = treeReader->UseBranch("Tower");
     
     // Check if the file was opened correctly
@@ -238,7 +240,7 @@ void select(const TString TempInput = "zh_delphes_0pi12_1.root", const Double_t 
 
                 Track *chargedHadron = (Track*) branchChargedHadron->At(m);
 
-                if(chargedHadron->P4().P() < 0.5) continue;
+                if(chargedHadron->P4().P() < 0.5 || Abs(chargedHadron->Eta) > 2.5) continue;
 
                 bool isDifferent = true;
                 for(UInt_t x = 0; x < orderedChargedHadrons.size(); x++){
@@ -395,17 +397,17 @@ void select(const TString TempInput = "zh_delphes_0pi12_1.root", const Double_t 
         // As an alternative method of reconstructing the Z, all the objects that were not taken as coming
         // from the Higgs are added up
 
-        for(Int_t i = 0; i < branchChargedHadron->GetEntries(); i++) {
-            Track *chargedHadron = (Track*) branchChargedHadron->At(i);
+        for(Int_t i = 0; i < branchEFlowTrack->GetEntries(); i++) {
+            Track *track = (Track*) branchEFlowTrack->At(i);
 
-            if(chargedHadron->P4().DeltaR(CPion1->P4()) < 0.4) continue;
-            if(chargedHadron->P4().DeltaR(CPion2->P4()) < 0.4) continue;
+            if(track->P4().DeltaR(CPion1->P4()) < 0.4) continue;
+            if(track->P4().DeltaR(CPion2->P4()) < 0.4) continue;
 
-            ZReco += chargedHadron->P4();
+            ZReco += track->P4();
         }
 
-        for(Int_t i = 0; i < branchNeutralHadron->GetEntries(); i++) {
-            Tower *neutralHadron = (Tower*) branchNeutralHadron->At(i);
+        for(Int_t i = 0; i < branchEFlowNeutralHadron->GetEntries(); i++) {
+            Tower *neutralHadron = (Tower*) branchEFlowNeutralHadron->At(i);
 
             if(neutralHadron->P4().DeltaR(CPion1->P4()) < 0.4) continue;
             if(neutralHadron->P4().DeltaR(CPion2->P4()) < 0.4) continue;
@@ -421,28 +423,6 @@ void select(const TString TempInput = "zh_delphes_0pi12_1.root", const Double_t 
             if(photon->P4().DeltaR(CPion2->P4()) < 0.4) continue;
 
             ZReco += photon->P4();
-        }
-
-        for(Int_t i = 0; i < branchElectron->GetEntries(); i++) {
-            Electron *electron = (Electron*) branchElectron->At(i);
-
-            if(electron->P4().DeltaR(CPion1->P4()) < 0.4) continue;
-            if(electron->P4().DeltaR(CPion2->P4()) < 0.4) continue;
-            TLorentzVector tempEletron = electron->P4();
-            tempEletron.SetPtEtaPhiM(tempEletron.Pt(), tempEletron.Eta(), tempEletron.Phi(), 0.000510999);
-
-            ZReco += tempEletron;
-        }
-
-        for(Int_t i = 0; i < branchMuon->GetEntries(); i++) {
-            Muon *muon = (Muon*) branchMuon->At(i);
-
-            if(muon->P4().DeltaR(CPion1->P4()) < 0.4) continue;
-            if(muon->P4().DeltaR(CPion2->P4()) < 0.4) continue;
-            TLorentzVector tempMuon = muon->P4();
-            tempMuon.SetPtEtaPhiM(tempMuon.Pt(), tempMuon.Eta(), tempMuon.Phi(), 0.105658);
-
-            ZReco += tempMuon;
         }
 
         // Selection ends here
